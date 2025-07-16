@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Keil Post-Build Log",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "cmd.exe",
+            "runtimeArgs": [
+                "/c",
+                "type",
+                "${workspaceFolder}\\build_log.txt"
+            ],
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "presentation": {
+                "hidden": false,
+                "group": "build",
+                "order": 1
+            }
+        }
+    ]
+}

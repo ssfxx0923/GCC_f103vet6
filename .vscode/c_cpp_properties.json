@@ -1,0 +1,39 @@
+{
+    "configurations": [
+        {
+            "name": "Win64",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/Start",
+                "${workspaceFolder}/Library",
+                "${workspaceFolder}/System",
+                "${workspaceFolder}/User",
+                "${workspaceFolder}/Hardware"
+            ],
+            "defines": [
+                "USE_STDPERIPH_DRIVER",
+                "STM32F10X_MD",
+                "__CC_ARM",
+                "STM32F10X",
+                "ARM_MATH_CM3"
+            ],
+            "compilerPath": "C:/Keil_v5/ARM/ARMCC/bin/armcc.exe",
+            "cStandard": "c99",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-arm",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}/**",
+                    "${workspaceFolder}/Start",
+                    "${workspaceFolder}/Library",
+                    "${workspaceFolder}/System",
+                    "${workspaceFolder}/User",
+                    "${workspaceFolder}/Hardware"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": "${workspaceFolder}/.vscode/.BROWSE.DB"
+            }
+        }
+    ],
+    "version": 4
+} 

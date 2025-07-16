@@ -1,0 +1,166 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build with Keil",
+            "type": "shell",
+            "command": "C:\\Keil_v5\\UV4\\UV4.exe -b ${workspaceFolder}\\project.uvprojx -j0 -o ${workspaceFolder}\\build_log.txt & type ${workspaceFolder}\\build_log.txt",
+            "dependsOrder": "sequence",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false,
+                "focus": true
+            },
+            "problemMatcher": [
+                {
+                    "owner": "keil-arm",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}"
+                    ],
+                    "pattern": [
+                        {
+                            "regexp": "^(.+)\\((\\d+)\\):\\s+(warning|error):\\s+(.+)$",
+                            "file": 1,
+                            "line": 2,
+                            "severity": 3,
+                            "message": 4
+                        }
+                    ]
+                }
+            ],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/c"
+                    ]
+                }
+            },
+            "isBackground": false
+        },
+        {
+            "label": "Flash with Keil",
+            "type": "shell",
+            "command": "C:\\Keil_v5\\UV4\\UV4.exe -f -j0 ${workspaceFolder}\\project.uvprojx",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false,
+                "focus": true
+            },
+            "problemMatcher": [],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/c"
+                    ]
+                }
+            }
+        },
+        {
+            "label": "Build and Flash",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Build with Keil",
+                "Flash with Keil"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Clean Project",
+            "type": "shell",
+            "command": "${workspaceFolder}\\keilkill.bat",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "problemMatcher": [],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/c"
+                    ]
+                }
+            }
+        },
+        {
+            "label": "Show Keil Build Log",
+            "type": "shell",
+            "command": "type",
+            "args": [
+                "${workspaceFolder}\\build_log.txt"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false,
+                "focus": true
+            },
+            "problemMatcher": [
+                {
+                    "owner": "keil-arm",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}"
+                    ],
+                    "pattern": [
+                        {
+                            "regexp": "^(.+)\\((\\d+)\\):\\s+(warning|error):\\s+(.+)$",
+                            "file": 1,
+                            "line": 2,
+                            "severity": 3,
+                            "message": 4
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "Update Keil Project",
+            "type": "shell",
+            "command": "${workspaceFolder}\\update_keil_project.exe",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false,
+                "focus": true
+            },
+            "problemMatcher": [],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/c"
+                    ]
+                }
+            }
+        },
+        {
+            "label": "Update Project and Build",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Update Keil Project",
+                "Build with Keil"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}

@@ -1,0 +1,32 @@
+[
+    {
+        "key": "f7",
+        "command": "workbench.action.tasks.runTask",
+        "args": "Build with Keil",
+        "when": "editorTextFocus"
+    },
+    {
+        "key": "f8",
+        "command": "workbench.action.tasks.runTask",
+        "args": "Flash with Keil",
+        "when": "editorTextFocus"
+    },
+    {
+        "key": "f9",
+        "command": "workbench.action.tasks.runTask",
+        "args": "Build and Flash",
+        "when": "editorTextFocus"
+    },
+    {
+        "key": "f10",
+        "command": "workbench.action.tasks.runTask",
+        "args": "Show Keil Build Log",
+        "when": "editorTextFocus"   
+    },
+    {
+        "key": "f11",
+        "command": "workbench.action.tasks.runTask",
+        "args": "Clean Project",
+        "when": "editorTextFocus"
+    }
+]
