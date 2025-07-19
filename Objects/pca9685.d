@@ -31,7 +31,7 @@
 .\objects\pca9685.o: .\Library\stm32f10x_wwdg.h
 .\objects\pca9685.o: .\Library\misc.h
 .\objects\pca9685.o: .\System\IIC.h
+.\objects\pca9685.o: .\System\IIC.h
 .\objects\pca9685.o: .\System\delay.h
 .\objects\pca9685.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\math.h
-.\objects\pca9685.o: .\System\Usart5.h
-.\objects\pca9685.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
+.\objects\pca9685.o: .\System\Usart1.h

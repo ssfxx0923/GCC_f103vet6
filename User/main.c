@@ -23,14 +23,13 @@ int main(){
 
     init();
 
-    crazyMe(1,50,5,50,50);
-
     // Motor_Set_Target_With_Speed(Motor1, 7, 1);
     // Motor_Set_Target_With_Speed(Motor2, 7, 1);
     // Motor_Set_Target_With_Speed(Motor3, 7, 1);
     // Motor_Set_Target_With_Speed(Motor4, 7, 1);
+    // TurnGo(0.845,10);
 
-    //TurnGo(0.845,10);
+    crazyMe(1,50,50,50,50);
     while(1){
     //    OLED_ShowSignedNum(1, 1, Get_Accumulated_Position(Motor1), 7);
     //    OLED_ShowSignedNum(2, 1, Get_Accumulated_Position(Motor2), 7);

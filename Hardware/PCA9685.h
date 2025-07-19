@@ -39,7 +39,6 @@ void crazyMe(int i,u16 a,u16 b,u16 tim,u8 xf);
 
 #endif
 
-/************************ (C) COPYRIGHT JXUST@WangMingcong *****END OF FILE****/
 
 
 
