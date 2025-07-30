@@ -39,3 +39,5 @@
 .\objects\main.o: .\Hardware\pid_control.h
 .\objects\main.o: .\System\Usart5.h
 .\objects\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
+.\objects\main.o: .\Hardware\openmv_control.h
+.\objects\main.o: .\System\Usart2.h

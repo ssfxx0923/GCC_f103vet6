@@ -31,6 +31,7 @@
 ".\objects\pca9685.o"
 ".\objects\encoder.o"
 ".\objects\pid_control.o"
+".\objects\openmv_control.o"
 ".\objects\sys.o"
 ".\objects\usart1.o"
 ".\objects\delay.o"

@@ -6,34 +6,38 @@
 #include "PCA9685.h"
 #include "TB6612.h"
 #include "Usart5.h"
+#include "pid_control.h"  
+#include "openmv_control.h"
+#include "Usart2.h"
 
 
 void init(){
+    // 系统时钟初始化和中断优先级分组设置
+    Stm32_Clock_Init(7);  // 72MHz时钟，设置中断优先级分组2
+    
     delay_init(8);
     OLED_Init();
     PCA9685_Init();
     MOTOR_Init();
-    Usart5_Init(9600);
+    Usart2_Init(115200);
+    Usart5_Init(115200);   
+    OpenMV_Control_Init();
     Encoder_Init();
-    Motor_Cascade_PID_Init();
+    PID_Control_Init();
 }
 
 
 int main(){
-
     init();
+    
 
-    // Motor_Set_Target_With_Speed(Motor1, 7, 1);
-    // Motor_Set_Target_With_Speed(Motor2, 7, 1);
-    // Motor_Set_Target_With_Speed(Motor3, 7, 1);
-    // Motor_Set_Target_With_Speed(Motor4, 7, 1);
-    // TurnGo(0.845,10);
 
-    crazyMe(1,50,50,50,50);
-    while(1){
-    //    OLED_ShowSignedNum(1, 1, Get_Accumulated_Position(Motor1), 7);
-    //    OLED_ShowSignedNum(2, 1, Get_Accumulated_Position(Motor2), 7);
-    //    OLED_ShowSignedNum(3, 1, Get_Accumulated_Position(Motor3), 7);
-    //    OLED_ShowSignedNum(4, 1, Get_Accumulated_Position(Motor4), 7);
-    }
-}
+    OpenMV_Go_Control(50,3,0.95);
+
+
+      while(1){
+
+      }
+  
+  
+  } 

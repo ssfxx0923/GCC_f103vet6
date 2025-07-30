@@ -29,6 +29,7 @@ void Usart5_Init(u32 bound)
    //GPIO端口设置
   GPIO_InitTypeDef GPIO_InitStructure;
 	USART_InitTypeDef USART_InitStructure;
+	NVIC_InitTypeDef NVIC_InitStructure;
 	
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC | RCC_APB2Periph_GPIOD, ENABLE); //使能GPIOC和GPIOD时钟
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_UART5, ENABLE); //使能UART5时钟
@@ -52,6 +53,14 @@ void Usart5_Init(u32 bound)
 	USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;	//收发模式
   USART_Init(UART5, &USART_InitStructure); //初始化串口5
 	
+	//UART5 NVIC 配置
+  NVIC_InitStructure.NVIC_IRQChannel = UART5_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 3; //抢占优先级3
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 3;        //子优先级3
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;           //IRQ通道使能
+	NVIC_Init(&NVIC_InitStructure);	//根据指定的参数初始化VIC寄存器
+  
+	USART_ITConfig(UART5, USART_IT_RXNE, ENABLE); //开启串口接收中断
   USART_Cmd(UART5, ENABLE);  //使能串口5
 }
 
@@ -76,4 +85,18 @@ uint8_t Usart5_ReceiveChar(void)
 {
   while(USART_GetFlagStatus(UART5, USART_FLAG_RXNE) == RESET);
   return USART_ReceiveData(UART5);
+}
+
+// UART5中断处理函数
+void UART5_IRQHandler(void)                	
+{
+	uint8_t recv_data;
+	
+	if(USART_GetITStatus(UART5, USART_IT_RXNE) != RESET)  //接收中断
+	{
+		recv_data = USART_ReceiveData(UART5); //读取接收到的数据
+		
+
+		USART_ClearITPendingBit(UART5, USART_IT_RXNE); //清除中断标志位
+	}
 }

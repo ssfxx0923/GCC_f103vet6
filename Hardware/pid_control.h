@@ -4,36 +4,41 @@
 #include "sys.h"
 #include "encoder.h"
 
-// PID控制相关宏定义
-#define SPEED_CALC_FREQUENCY_HZ 1000     // 速度计算频率1kHz
+#define CONTROL_FREQUENCY_HZ        1000        // PID控制频率1kHz
+#define POSITION_TOLERANCE          2           // 位置控制误差容忍度
+#define POSITION_INTEGRAL_LIMIT     5000.0f     // 位置环积分限幅
+#define SPEED_OUTPUT_LIMIT          100.0f       // 速度环输出限幅
+#define SPEED_INTEGRAL_LIMIT        100.0f      // 速度环积分限幅
+
+typedef enum {
+    CONTROL_SPEED = 0,      // 速度控制模式
+    CONTROL_POSITION        // 位置控制模式
+} Motor_Control_Mode_t;
 
 // 电机控制状态结构体
 typedef struct {
-    float target_position;          // 目标位置(编码器计数)
-    float target_speed;             // 目标速度(编码器脉冲/秒)
-    int32_t accumulated_position;   // 累积位置
-    float current_speed;            // 当前速度(编码器脉冲/秒)
-    uint8_t finish_flag;            //运动完成标志
-    uint8_t control_enabled;        // 控制使能标志
+    Motor_Control_Mode_t control_mode;  // 控制模式 
+    float target_position;              // 目标位置(编码器脉冲)
+    float target_speed;                 // 目标速度(RPM)
+    float max_speed;                    // 最大允许速度(RPM)
+    int32_t accumulated_position;       // 累积位置
+    float current_speed;                // 当前速度(RPM)
 } Motor_Control_State_t;
 
-// PID控制相关函数声明
-void PID_Control_Init(void);                                       // 初始化PID控制模块
+void PID_Control_Init(void);                                           // PID控制模块初始化
+void Position_Control_Start(MotorNum_t motor, float revolutions, float max_speed_rpm);  // 启动位置控制
+void Speed_Control_Start(MotorNum_t motor, float rpm);                 // 启动速度控制
+void Motor_Control_Stop(MotorNum_t motor);                             // 停止单个电机控制
+void Motor_Control_Stop_All(void);                                     // 停止所有电机控制
+void Reset_Motor_State(MotorNum_t motor);                              // 重置电机状态
+int32_t Get_Accumulated_Position(MotorNum_t motor);                     // 获取累积位置
+void Reset_Accumulated_Position(MotorNum_t motor);                      // 重置累积位置
+float Get_Motor_Speed(MotorNum_t motor);                               // 获取电机速度(RPM)
+float Position_PID_RPM(int current_position, int target_position, int motor_index);         // 位置环PID(输出RPM)
+float Speed_PID_Calculate(float current_speed_rpm, float target_speed_rpm, int motor_index,
+                         float KP, float KI, float KD);                                    // 速度环PID(RPM输入，可配置参数)
+void Reset_Speed_PID(MotorNum_t motor);                                                     // 重置速度PID状态
+void Position_Control_Start_All(float revolutions, float max_speed_rpm);
+float Limit_Value(float value, float limit);     
 
-// 串级PID控制函数声明
-void Motor_Cascade_PID_Init(void);                           // 初始化串级PID控制器
-void Motor_Set_Target(MotorNum_t motor, float revolutions);   // 设置单电机目标位置
-void Motor_Start_Control(void);                               // 启动PID控制
-void Motor_Stop_Control(void);                                // 停止PID控制
-void Motor_Set_Target_With_Speed(MotorNum_t motor, float revolutions, float max_speed); // 设置位置和速度限制
-void TurnGo(float circle, float speed);
-void Stop_All_Motor(void);
-// 编码器位置累积函数声明
-int32_t Get_Accumulated_Position(MotorNum_t motor);                // 获取累积位置
-void Reset_Accumulated_Position(MotorNum_t motor);                 // 重置累积位置
-float Get_Motor_Speed(MotorNum_t motor);                          // 获取原始速度
-
-
-int Position_PID(int reality, int target, int motor_index);    // 位置环PID
-int Incremental_PID(int reality, int target, int motor_index); // 速度环PID
 #endif 

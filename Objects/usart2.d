@@ -1,5 +1,5 @@
 .\objects\usart2.o: System\Usart2.c
-.\objects\usart2.o: System\USART2.h
+.\objects\usart2.o: System\Usart2.h
 .\objects\usart2.o: System\sys.h
 .\objects\usart2.o: .\Start\stm32f10x.h
 .\objects\usart2.o: .\Start\core_cm3.h
@@ -30,3 +30,4 @@
 .\objects\usart2.o: .\Library\stm32f10x_usart.h
 .\objects\usart2.o: .\Library\stm32f10x_wwdg.h
 .\objects\usart2.o: .\Library\misc.h
+.\objects\usart2.o: .\Hardware\openmv_control.h

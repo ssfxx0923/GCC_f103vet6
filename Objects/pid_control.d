@@ -36,3 +36,4 @@
 .\objects\pid_control.o: Hardware\OLED.h
 .\objects\pid_control.o: .\System\Usart5.h
 .\objects\pid_control.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
+.\objects\pid_control.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdlib.h

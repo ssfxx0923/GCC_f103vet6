@@ -18,7 +18,6 @@ void Motor_SetDirection(MotorNum_t motor, int direction);   // 设置电机方向
 void Motor_SetPWM(MotorNum_t motor, int pwm);              // 设置电机PWM值
 
 // 串级PID控制相关电机函数声明
-void Set_Motor_PWM(MotorNum_t motor, int pwm);            // 设置PWM和方向（含死区补偿）(-100到100)
-int Xianfu(int data, int max);                             // 限幅函数
+void Set_Motor_PWM(MotorNum_t motor, int pwm);            // 设置PWM和方向
 
 #endif
