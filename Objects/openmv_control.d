@@ -35,3 +35,4 @@
 .\objects\openmv_control.o: Hardware\encoder.h
 .\objects\openmv_control.o: Hardware\pid_control.h
 .\objects\openmv_control.o: Hardware\oled.h
+.\objects\openmv_control.o: .\System\delay.h

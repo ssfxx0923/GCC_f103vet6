@@ -23,10 +23,12 @@ PACKET_SYNC = 0xAA  # 同步字节
 MODE_FORWARD = 0x00   # 向前巡线模式
 MODE_BACKWARD = 0x01  # 向后巡线模式
 MODE_COLOR = 0x02     # 颜色识别模式
+MODE_TURN_ASSIST = 0x03  # 转弯辅助模式
 
-# 交叉线标志位定义
-CROSS_NONE = 0x00     # 无交叉线
+# 标志位定义
+FLAG_NONE = 0x00      # 无标志
 CROSS_DETECTED = 0x01 # 检测到交叉线
+TURN_DETECTED = 0x02  # 检测到转弯
 
 # 颜色位定义
 COLOR_NONE = 0x00     # 无颜色检测
@@ -55,11 +57,12 @@ class LineFollower:
         self.threshold = [(0, 40, -20, 20, -20, 20)]#黑线阈值
 
         # 向后巡线参数
-        self.backward_mode = False  # 向后巡线模式开关
-        self.rear_distance = 70  # 图像中心到车尾的距离
+        self.backward_mode = 1  # 向后巡线模式开关
+        self.rear_distance = 50  # 图像中心到车尾的距离
 
         # 颜色识别参数
-        self.color_mode = False  # 颜色识别模式开关
+
+        self.color_mode = 0  # 颜色识别模式开关
         self.color_thresholds = {
             'red': [(20, 100, 15, 127, 15, 127)],      # 红色阈值
             'green': [(30, 100, -64, -8, -32, 32)],   # 绿色阈值
@@ -70,6 +73,10 @@ class LineFollower:
         self.detected_color = None
         self.color_detection_confidence = 0
         self.min_color_pixels = 50  # 最小像素数阈值
+
+        # 转弯辅助参数
+        self.turn_assist_mode = False  # 转弯辅助模式开关
+        self.last_vertical_time = 0    # 上次检测到竖线的时间
 
     def detect_color(self, img):
         """颜色识别功能"""
@@ -113,6 +120,31 @@ class LineFollower:
             self.color_detection_confidence = 0
 
         return self.detected_color, detection_results
+
+    def detect_vertical_line(self, img):
+        """检测竖线（转弯辅助用）"""
+        current_time = time.ticks_ms()
+        center_x, center_y = self.img_width // 2, self.img_height // 2
+
+        # 竖线检测ROI（垂直方向）
+        roi_w, roi_h = self.img_width // 3, self.img_height // 2
+        vertical_roi = (center_x - roi_w//2, center_y, roi_w, roi_h)
+
+        blobs = img.find_blobs(self.threshold, roi=vertical_roi, merge=True, pixels_threshold=50)
+        img.draw_rectangle(vertical_roi, color=(255, 255, 0))
+
+        if blobs:
+            # 检查是否为竖线（高度大于宽度）
+            for blob in blobs:
+                if blob.h() > blob.w() * 1.5:  # 竖线条件：高度是宽度的1.5倍以上
+                    # 防重复检测
+                    if current_time - self.last_vertical_time > 600:
+                        self.last_vertical_time = current_time
+                        img.draw_rectangle(blob.rect(), color=(0, 255, 255))
+                        img.draw_cross(center_x, center_y, size=15, color=(0, 255, 255))
+                        return True
+
+        return False
 
     def find_line_with_slope(self, img):
         """找到线的中心点并计算斜率"""
@@ -221,7 +253,7 @@ class LineFollower:
         self.last_error = error
         return output
 
-    def motor_control(self, steering_value, is_cross=False, is_backward=False, detected_color=None):
+    def motor_control(self, steering_value, is_cross=False, is_turn=False, is_backward=False, detected_color=None):
         steering_value = max(-100, min(100, int(steering_value)))
 
         # 5字节数据包格式: [0xAA, 模式位, PID位, 交叉线标志位, 颜色位]
@@ -230,6 +262,8 @@ class LineFollower:
         # 模式位
         if self.color_mode:
             packet.append(MODE_COLOR)
+        elif self.turn_assist_mode:
+            packet.append(MODE_TURN_ASSIST)
         elif self.backward_mode:
             packet.append(MODE_BACKWARD)
         else:
@@ -245,8 +279,10 @@ class LineFollower:
         # 交叉线标志位
         if is_cross:
             packet.append(CROSS_DETECTED)
+        elif is_turn:
+            packet.append(TURN_DETECTED)
         else:
-            packet.append(CROSS_NONE)
+            packet.append(FLAG_NONE)
 
         # 颜色位
         if detected_color:
@@ -269,31 +305,45 @@ class LineFollower:
             status_text = f"COLOR_{detected_color.upper()}"
         elif is_cross:
             status_text = "CROSS"
+        elif is_turn:
+            status_text = "TURN"
         elif is_backward:
             status_text = "BACK"
         else:
             status_text = "NORMAL"
 
-        mode_text = "COLOR" if self.color_mode else ("BACK" if self.backward_mode else "FORWARD")
-        print(f"发送: 模式={mode_text}, PID={steering_value}, 交叉线={is_cross}, 颜色={detected_color or 'None'}")
+        mode_text = "TURN" if self.turn_assist_mode else ("COLOR" if self.color_mode else ("BACK" if self.backward_mode else "FORWARD"))
+        flag_text = "交叉线" if is_cross else ("转弯" if is_turn else "无")
+        print(f"发送: 模式={mode_text}, PID={steering_value}, 标志={flag_text}, 颜色={detected_color or 'None'}")
         print(f"字节=[0x{packet[0]:02X}, 0x{packet[1]:02X}, 0x{packet[2]:02X}, 0x{packet[3]:02X}, 0x{packet[4]:02X}]")
 
     def process_uart_commands(self):
         """处理串口接收到的命令"""
         if uart.any():
-            cmd = uart.read().decode('utf-8').strip()
-            if cmd == "FORWARD":
-                self.backward_mode = False
-                self.color_mode = False
-                print("切换到向前巡线模式")
-            elif cmd == "BACK":
-                self.backward_mode = True
-                self.color_mode = False
-                print("切换到向后巡线模式")
-            elif cmd == "COLOR":
-                self.color_mode = True
-                self.backward_mode = False
-                print("切换到颜色识别模式")
+            cmd_data = uart.read(1)  # 读取一个字节
+            if len(cmd_data) == 1:
+                cmd = cmd_data[0]  # 获取字节值
+
+                if cmd == MODE_FORWARD:  # 0x00
+                    self.backward_mode = False
+                    self.color_mode = False
+                    self.turn_assist_mode = False
+                    print("切换到向前巡线模式")
+                elif cmd == MODE_BACKWARD:  # 0x01
+                    self.backward_mode = True
+                    self.color_mode = False
+                    self.turn_assist_mode = False
+                    print("切换到向后巡线模式")
+                elif cmd == MODE_COLOR:  # 0x02
+                    self.color_mode = True
+                    self.backward_mode = False
+                    self.turn_assist_mode = False
+                    print("切换到颜色识别模式")
+                elif cmd == MODE_TURN_ASSIST:  # 0x03
+                    self.turn_assist_mode = True
+                    self.color_mode = False
+                    self.backward_mode = False
+                    print("切换到转弯辅助模式")
 
     def run(self):
         green_led.on()
@@ -308,12 +358,20 @@ class LineFollower:
             img.draw_cross(center_x, center_y, size=5, color=(255, 255, 255))
 
             # 模式控制
-            if self.color_mode:
+            if self.turn_assist_mode:
+                # 转弯辅助模式：只检测竖线
+                if self.detect_vertical_line(img):
+                    self.motor_control(0, is_turn=True)  # 使用专用转弯标志位
+                    img.draw_string(10, 55, "VLine Detected", color=(0, 255, 255), scale=1)
+                else:
+                    self.motor_control(0)
+                    img.draw_string(10, 55, "Searching VLine", color=(255, 255, 0), scale=1)
+
+            elif self.color_mode:
                 # 颜色识别模式
                 detected_color, color_results = self.detect_color(img)
 
                 if detected_color:
-                    # 发送颜色识别结果，PID值设为0（不需要转向控制）
                     self.motor_control(0, detected_color=detected_color)
 
                     # 在图像上显示检测结果
@@ -329,7 +387,7 @@ class LineFollower:
                     img.draw_string(10, y_offset, f"{color_name}: {pixels}", color=(200, 200, 200))
                     y_offset += 12
             else:
-                # 巡线模式 - 进行交叉线检测和巡线控制
+                # 巡线模式
                 img.draw_rectangle(self.roi, color=255)
 
                 # 检测交叉线
@@ -338,7 +396,6 @@ class LineFollower:
                     self.motor_control(0, is_cross=True)
                     time.sleep_ms(200)
                     red_led.off()
-                    # 在检测到交叉线后继续下一次循环
 
                 else:
                     red_led.off()
@@ -350,7 +407,6 @@ class LineFollower:
                             # 计算当前误差
                             current_error = line_x - (self.roi[0] + self.roi[2] // 2)
 
-                            # 使用相似三角形计算车尾真实偏差
                             detection_y = self.roi[1] + self.roi[3] // 2  # ROI中心y坐标
                             rear_error = self.calculate_rear_error(current_error, slope, detection_y)
 
@@ -390,7 +446,10 @@ class LineFollower:
             img.draw_string(10, 25, f"FPS: {clock.fps():.1f}", color=255)
 
             # 显示当前模式
-            if self.color_mode:
+            if self.turn_assist_mode:
+                mode_text = "TURN"
+                mode_color = (0, 255, 255)
+            elif self.color_mode:
                 mode_text = "COLOR"
                 mode_color = (255, 0, 255)
             elif self.backward_mode:
@@ -408,6 +467,4 @@ class LineFollower:
 if __name__ == "__main__":
     line_follower = LineFollower()
 
-    # 可以通过串口命令切换模式，例如发送"COLOR", "FORWARD", "BACK"
-    # 这里先默认启动向前巡线
     line_follower.run()

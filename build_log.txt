@@ -3,12 +3,10 @@ Build target 'Target 1'
 compiling main.c...
 .\Hardware\PCA9685.h(32): warning:  #1295-D: Deprecated declaration PCA9685_Init - give arg types
   void PCA9685_Init();
-.\Hardware\openmv_control.h(38): warning:  #1-D: last line of file ends without a newline
-  #endif 
-User\main.c(43): warning:  #1-D: last line of file ends without a newline
-    } 
-User\main.c: 3 warnings, 0 errors
+User\main.c(62): warning:  #1-D: last line of file ends without a newline
+    
+Error: C4051E: couldn't write file '.\objects\main.o': Invalid argument
 linking...
-Program Size: Code=13626 RO-data=1858 RW-data=80 ZI-data=1808  
-".\Objects\project.axf" - 0 Error(s), 3 Warning(s).
+Program Size: Code=13148 RO-data=336 RW-data=84 ZI-data=1812  
+".\Objects\project.axf" - 0 Error(s), 2 Warning(s).
 Build Time Elapsed:  00:00:01
