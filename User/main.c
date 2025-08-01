@@ -31,7 +31,7 @@ void init(){
 int main(){
     init();
     
-    // OpenMV_Go_Control(40,2,0.95);
+ //    OpenMV_Go_Control(40,2,0.95);
 
   //  Position_Control_Start_All(-4,40);
 
@@ -45,18 +45,17 @@ int main(){
     //  OpenMV_Go_Control(40,2,0.95);
 
 
-    // OpenMV_Go_Control(40,2,1.4);
-    // delay_ms(5000);
-    // // OpenMV_Go_Control(50,3,0.95);
-    //  OpenMV_Turn_Control(1,2,20);
-    //  OpenMV_Go_Control(40,2,0.6);
+  //  OpenMV_Go_Control(40,2,1.4);
+  //  delay_ms(5000);
+    // OpenMV_Go_Control(50,3,0.95);
+    // OpenMV_Turn_Control(1,2,20);
+   //  OpenMV_Go_Control(40,2,0.6);
 
 
 
       while(1){
-        OpenMV_Line_Backward_Control(0);
+        OpenMV_Line_Forward_Control(10);
       }
   
   
-  } 
-  
+  }

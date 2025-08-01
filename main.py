@@ -58,7 +58,7 @@ class LineFollower:
 
         # 向后巡线参数
         self.backward_mode = 1  # 向后巡线模式开关
-        self.rear_distance = 50  # 图像中心到车尾的距离
+        self.rear_distance = 140  # 图像中心到车尾的距离
 
         # 颜色识别参数
 

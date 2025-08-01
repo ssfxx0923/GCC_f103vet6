@@ -80,8 +80,8 @@ void OpenMV_Line_Backward_Control(float speed)
 {
     float left_speed, right_speed;
     OpenMV_Send_Command(1);
-    left_speed = -speed - pid_output * 0.3f;
-    right_speed = -speed + pid_output * 0.3f;
+    left_speed = -speed + pid_output * 0.3f;
+    right_speed = -speed - pid_output * 0.3f;
 
     Speed_Control_Start(Motor1, left_speed);
     Speed_Control_Start(Motor2, right_speed);
@@ -134,7 +134,7 @@ void OpenMV_Turn_Control(float direction, uint32_t target_lines,float speed)
             turn_count = 0;  // 重置计数
             delay_ms(100);
             // 对准当前竖线：使用相反速度纠正
-            for(int i = 0; i < 20; i++)
+            for(int i = 0; i < 200; i++)
             {
                 Speed_Control_Start(Motor1, -pid_output * 0.3f);
                 Speed_Control_Start(Motor2, pid_output * 0.3f);
