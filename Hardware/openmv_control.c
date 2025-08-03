@@ -64,8 +64,11 @@ void OpenMV_Process_Data(uint8_t *data, uint8_t len)
 void OpenMV_Line_Forward_Control(float speed)
 {
     float left_speed, right_speed;
-    OpenMV_Send_Command(0);
-
+    if(current_mode != MODE_FORWARD)    
+    {
+        OpenMV_Send_Command(0);
+        delay_ms(100);
+    }
     left_speed = speed + pid_output * 0.3f;
     right_speed = speed - pid_output * 0.3f;
     
@@ -75,42 +78,38 @@ void OpenMV_Line_Forward_Control(float speed)
     Speed_Control_Start(Motor4, right_speed);
 }
 
-
-void OpenMV_Line_Backward_Control(float speed)
-{
-    float left_speed, right_speed;
-    OpenMV_Send_Command(1);
-    left_speed = -speed + pid_output * 0.3f;
-    right_speed = -speed - pid_output * 0.3f;
-
-    Speed_Control_Start(Motor1, left_speed);
-    Speed_Control_Start(Motor2, right_speed);
-    Speed_Control_Start(Motor3, left_speed);
-    Speed_Control_Start(Motor4, right_speed);
-}
-
 void OpenMV_Go_Control(float speed,uint32_t count,float revolutions)
 {
-    while(1)
+    uint32_t timeout_counter = 0;
+    const uint32_t max_timeout = 50000;  // 最大超时计数，防止无限循环
+    
+    while(timeout_counter < max_timeout)
     {
-        OLED_ShowNum(2,1,cross_count,3);
         OpenMV_Line_Forward_Control(speed);
-        if(cross_count == count)
+        timeout_counter++;
+        OLED_ShowNum(2,1,cross_count,3);
+        if(cross_count >= count)
         {   
             OLED_ShowNum(2,1,cross_count,3);
-            Position_Control_Start_All(revolutions, speed);
-            cross_count = 0;
             break;
         }
     }
+    Position_Control_Start_All(revolutions, speed);
+    cross_count = 0;
 }
-
 
 void OpenMV_Turn_Control(float direction, uint32_t target_lines,float speed)
 {
-    OpenMV_Send_Command(3);  // 切换到转弯辅助模式
+    if(current_mode != MODE_TURN_ASSIST)
+    {
+        OpenMV_Send_Command(3);  // 切换到转弯辅助模式
+        delay_ms(100);
+    }
     
-    while(1)
+    uint32_t timeout_counter = 0;
+    const uint32_t max_timeout = 50000;  // 最大超时计数，防止无限循环
+    
+    while(timeout_counter < max_timeout)
     {
         if(direction > 0)
         {
@@ -126,26 +125,22 @@ void OpenMV_Turn_Control(float direction, uint32_t target_lines,float speed)
             Speed_Control_Start(Motor3, -speed);
             Speed_Control_Start(Motor4, speed);
         }
+        timeout_counter++;
         OLED_ShowNum(1,1,turn_count,3);
         if(turn_count >= target_lines)
         {   
             OLED_ShowNum(1,1,turn_count,3);
-            OpenMV_Send_Command(0);  // 切换回向前巡线模式
-            turn_count = 0;  // 重置计数
-            delay_ms(100);
-            // 对准当前竖线：使用相反速度纠正
-            for(int i = 0; i < 200; i++)
-            {
-                Speed_Control_Start(Motor1, -pid_output * 0.3f);
-                Speed_Control_Start(Motor2, pid_output * 0.3f);
-                Speed_Control_Start(Motor3, -pid_output * 0.3f);
-                Speed_Control_Start(Motor4, pid_output * 0.3f);
-                delay_ms(50);
-            }
-            Position_Control_Start_All(0,speed);
             break;
         }
     }
+    OpenMV_Send_Command(0);
+    turn_count = 0;  
+    delay_ms(100);
+    for(int i = 0; 1; i++)
+    {
+        OpenMV_Line_Forward_Control(0);
+    }
+    Position_Control_Start_All(0,speed);
 }
 
 
@@ -174,8 +169,11 @@ int8_t OpenMV_Get_PID_Output(void)
 
 ColorType_t OpenMV_Get_Color(void)
 {   
-    OpenMV_Send_Command(2);
-    delay_ms(100);
+    if(current_mode != MODE_COLOR)
+    {
+        OpenMV_Send_Command(2);
+        delay_ms(100);
+    }
     return detected_color;
 }
 

@@ -24,13 +24,34 @@ void init(){
     OpenMV_Control_Init();
     Encoder_Init();
     PID_Control_Init();
-    delay_ms(5000);
+ //   delay_ms(5000);
 }
 
 
 int main(){
     init();
     
+    // crazyMe(0,5,5,2,100);
+    // crazyMe(1,50,50,2,100);
+    // crazyMe(2,90,90,2,100);
+    // crazyMe(3,5,5,2,100);
+
+    // crazyMe(4,5,5,2,100);
+    // crazyMe(5,50,50,2,100);
+    // crazyMe(6,90,90,2,100);
+    // crazyMe(7,178,178,2,100);
+
+    // crazyMe(8,5,5,2,100);
+    // crazyMe(9,50,50,2,100);
+    // crazyMe(10,90,90,2,100);
+    // crazyMe(11,178,178,2,100);
+
+    // crazyMe(12,5,5,2,100);
+    // crazyMe(13,50,50,2,100);
+    // crazyMe(14,90,90,2,100);
+    // crazyMe(15,178,178,2,100);
+
+
  //    OpenMV_Go_Control(40,2,0.95);
 
   //  Position_Control_Start_All(-4,40);
@@ -41,20 +62,20 @@ int main(){
     // OpenMV_Go_Control(50,2,2.12);
     // delay_ms(5000);
     // // OpenMV_Go_Control(50,3,0.95);
-    //  OpenMV_Turn_Control(1,2,20);
-    //  OpenMV_Go_Control(40,2,0.95);
-
-
-  //  OpenMV_Go_Control(40,2,1.4);
-  //  delay_ms(5000);
-    // OpenMV_Go_Control(50,3,0.95);
     // OpenMV_Turn_Control(1,2,20);
-   //  OpenMV_Go_Control(40,2,0.6);
+    // OpenMV_Go_Control(40,2,0.95);
 
 
+  // OpenMV_Go_Control(40,2,1.2);
+  //  delay_ms(5000);
+  // //  OpenMV_Go_Control(50,3,0.95);
+  //   OpenMV_Turn_Control(1,3,8);
+  //   OpenMV_Go_Control(40,2,0.6);
+
+ // OpenMV_Send_Command(3);
 
       while(1){
-        OpenMV_Line_Forward_Control(10);
+        OpenMV_Line_Forward_Control(20);
       }
   
   
