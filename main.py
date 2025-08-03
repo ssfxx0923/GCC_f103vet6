@@ -21,9 +21,8 @@ PACKET_SYNC = 0xAA  # 同步字节
 
 # 模式位定义
 MODE_FORWARD = 0x00   # 向前巡线模式
-MODE_BACKWARD = 0x01  # 向后巡线模式
-MODE_COLOR = 0x02     # 颜色识别模式
-MODE_TURN_ASSIST = 0x03  # 转弯辅助模式
+MODE_COLOR = 0x01     # 颜色识别模式
+MODE_TURN_ASSIST = 0x02  # 转弯辅助模式
 
 # 标志位定义
 FLAG_NONE = 0x00      # 无标志
@@ -44,10 +43,6 @@ class LineFollower:
         self.forward_kp, self.forward_ki, self.forward_kd = 1.5, 0.0, 0.3
         self.forward_last_error = self.forward_integral = 0
 
-        # 向后巡线PID参数
-        self.backward_kp, self.backward_ki, self.backward_kd = 0.01, 0.0, 0.0
-        self.backward_last_error = self.backward_integral = 0
-
         # 交叉线检测
         self.cross_count = self.cross_confirm_count = 0
         self.last_cross_time = 0
@@ -59,10 +54,6 @@ class LineFollower:
         roi_w, roi_h = self.img_width // 2, self.img_height // 3
         self.roi = ((self.img_width - roi_w) // 2, (self.img_height - roi_h) // 2, roi_w, roi_h)
         self.threshold = [(0, 40, -20, 20, -20, 20)]#黑线阈值
-
-        # 向后巡线参数
-        self.backward_mode = 0  # 向后巡线模式开关
-        self.rear_distance = 800 # 图像中心到车尾的距离
 
         # 颜色识别参数
 
@@ -154,98 +145,6 @@ class LineFollower:
 
         return False
 
-    def find_line_with_slope(self, img):
-        """找到线的中心点并使用最小二乘法计算斜率"""
-        blobs = img.find_blobs(self.threshold, roi=self.roi, merge=True, pixels_threshold=30)
-        if not blobs:
-            return None, None, None
-
-        # 获取最大的blob
-        main_blob = max(blobs, key=lambda b: b.pixels())
-
-        # 在ROI内各个y位置检测线的x位置 - 增加检测段数
-        detection_points = []
-        roi_x, roi_y, roi_w, roi_h = self.roi
-
-        # 在ROI内分8段检测（增加检测点）
-        detection_segments = 8
-        for i in range(detection_segments):
-            y_offset = int(roi_h * (i + 1) / (detection_segments + 1))
-            y_pos = roi_y + y_offset
-
-            # 在该y位置附近检测线
-            line_roi = (roi_x, y_pos - 3, roi_w, 6)
-            line_blobs = img.find_blobs(self.threshold, roi=line_roi, merge=True, pixels_threshold=8)
-
-            if line_blobs:
-                line_x = max(line_blobs, key=lambda b: b.pixels()).cx()
-                detection_points.append((line_x, y_pos))
-                # 绘制检测点
-                img.draw_circle(line_x, y_pos, 2, color=(255, 0, 0))
-
-        if len(detection_points) < 3:
-            # 如果检测点太少，降级到简单斜率计算
-            if len(detection_points) >= 2:
-                p1, p2 = detection_points[0], detection_points[-1]
-                dx = p2[0] - p1[0]
-                dy = p2[1] - p1[1]
-                slope = dx / dy if dy != 0 else float('inf')
-                return main_blob.cx(), slope, detection_points
-            else:
-                return main_blob.cx(), None, detection_points
-
-        # 使用最小二乘法计算斜率
-        slope = self.calculate_slope_least_squares(detection_points)
-        return main_blob.cx(), slope, detection_points
-
-    def calculate_slope_least_squares(self, points):
-        """使用最小二乘法计算斜率"""
-        if len(points) < 2:
-            return None
-
-        n = len(points)
-        sum_x = sum(p[0] for p in points)
-        sum_y = sum(p[1] for p in points)
-        sum_xy = sum(p[0] * p[1] for p in points)
-        sum_x2 = sum(p[0] * p[0] for p in points)
-
-        # 计算斜率：k = (n*Σ(xy) - Σ(x)*Σ(y)) / (n*Σ(x²) - (Σ(x))²)
-        denominator = n * sum_x2 - sum_x * sum_x
-
-        if abs(denominator) < 1e-6:  # 避免除零，近似垂直线
-            return float('inf')
-
-        slope = (n * sum_xy - sum_x * sum_y) / denominator
-
-        # 由于我们关心的是 dx/dy，需要转换斜率
-        # 当前计算的是 dy/dx，我们需要 dx/dy
-        if abs(slope) < 1e-6:  # 近似水平线
-            return float('inf')
-
-        return 1.0 / slope
-
-    def calculate_rear_error(self, current_error, slope, detection_y):
-        """计算车尾的真正偏差"""
-        if slope is None:
-            return current_error  # 如果无法计算斜率，使用当前误差
-
-        center_y = self.img_height // 2
-        rear_y = center_y + self.rear_distance  # 车尾y坐标
-
-        # 处理斜率不存在的情况（垂直线）
-        if slope == float('inf') or abs(slope) > 1000:  # 近似垂直线
-            return current_error
-
-        # 使用精确的几何关系计算车尾偏差
-        # 黑线方程: x = k * (y - y检测) + x检测
-        # 在车尾位置的偏差 = k * (y车尾 - y检测) + 当前误差
-        y_distance = rear_y - detection_y
-        rear_error = slope * y_distance + current_error
-
-        return rear_error
-
-
-
     def detect_intersection(self, img):
         current_time = time.ticks_ms()
         center_x, center_y = self.img_width // 2, self.img_height // 2
@@ -303,7 +202,7 @@ class LineFollower:
 
         return output
 
-    def motor_control(self, steering_value, is_cross=False, is_turn=False, is_backward=False, detected_color=None):
+    def motor_control(self, steering_value, is_cross=False, is_turn=False, detected_color=None):
         steering_value = max(-100, min(100, int(steering_value)))
 
         # 5字节数据包格式: [0xAA, 模式位, PID位, 交叉线标志位, 颜色位]
@@ -314,8 +213,6 @@ class LineFollower:
             packet.append(MODE_COLOR)
         elif self.turn_assist_mode:
             packet.append(MODE_TURN_ASSIST)
-        elif self.backward_mode:
-            packet.append(MODE_BACKWARD)
         else:
             packet.append(MODE_FORWARD)
 
@@ -357,15 +254,13 @@ class LineFollower:
             status_text = "CROSS"
         elif is_turn:
             status_text = "TURN"
-        elif is_backward:
-            status_text = "BACK"
         else:
             status_text = "NORMAL"
 
         # 控制调试信息输出频率
         current_time = time.ticks_ms()
         if current_time - self.last_debug_time > self.debug_interval:
-            mode_text = "TURN" if self.turn_assist_mode else ("COLOR" if self.color_mode else ("BACK" if self.backward_mode else "FORWARD"))
+            mode_text = "TURN" if self.turn_assist_mode else ("COLOR" if self.color_mode else "FORWARD")
             flag_text = "交叉线" if is_cross else ("转弯" if is_turn else "无")
             print(f"发送: 模式={mode_text}, PID={steering_value}, 标志={flag_text}, 颜色={detected_color or 'None'}")
             print(f"字节=[0x{packet[0]:02X}, 0x{packet[1]:02X}, 0x{packet[2]:02X}, 0x{packet[3]:02X}, 0x{packet[4]:02X}]")
@@ -379,24 +274,16 @@ class LineFollower:
                 cmd = cmd_data[0]  # 获取字节值
 
                 if cmd == MODE_FORWARD:  # 0x00
-                    self.backward_mode = False
                     self.color_mode = False
                     self.turn_assist_mode = False
                     print("切换到向前巡线模式")
-                elif cmd == MODE_BACKWARD:  # 0x01
-                    self.backward_mode = True
-                    self.color_mode = False
-                    self.turn_assist_mode = False
-                    print("切换到向后巡线模式")
-                elif cmd == MODE_COLOR:  # 0x02
+                elif cmd == MODE_COLOR:  # 0x01
                     self.color_mode = True
-                    self.backward_mode = False
                     self.turn_assist_mode = False
                     print("切换到颜色识别模式")
-                elif cmd == MODE_TURN_ASSIST:  # 0x03
+                elif cmd == MODE_TURN_ASSIST:  # 0x02
                     self.turn_assist_mode = True
                     self.color_mode = False
-                    self.backward_mode = False
                     print("切换到转弯辅助模式")
 
     def run(self):
@@ -454,61 +341,24 @@ class LineFollower:
                 else:
                     red_led.off()
 
-                    if self.backward_mode:
-                        # 向后巡线模式
-                        line_x, slope, detection_points = self.find_line_with_slope(img)
-                        if line_x is not None:
-                            # 计算当前误差
-                            current_error = line_x - (self.roi[0] + self.roi[2] // 2)
-
-                            detection_y = self.roi[1] + self.roi[3] // 2  # ROI中心y坐标
-                            rear_error = self.calculate_rear_error(current_error, slope, detection_y)
-
-                            # PID控制（使用向后巡线专用参数）
-                            pid_output = self.calculate_pid(
-                                rear_error,
-                                self.backward_kp, self.backward_ki, self.backward_kd,
-                                'backward_last_error', 'backward_integral'
-                            )
-                            self.motor_control(pid_output, is_backward=True)
-
-                            # 绘制检测结果
-                            img.draw_circle(line_x, 60, 5, color=255)
-
-                            # 绘制车尾位置和计算的偏差
-                            rear_x = center_x + int(rear_error)
-                            img.draw_cross(rear_x, center_y + self.rear_distance, size=8, color=(0, 255, 255))
-
-                            # 显示调试信息
-                            img.draw_string(10, 40, f"Slope: {slope:.2f}" if slope is not None else "Slope: None", color=255)
-                            img.draw_string(10, 55, f"CurErr: {current_error:.1f}", color=255)
-                            img.draw_string(10, 70, f"RearErr: {rear_error:.1f}", color=255)
-
-                            # 在右上角显示车尾坐标值和斜率
-                            rear_y = center_y + self.rear_distance
-                            img.draw_string(self.img_width - 120, 10, f"Rear X: {rear_x}", color=(0, 255, 255))
-                            img.draw_string(self.img_width - 120, 25, f"Rear Y: {rear_y}", color=(0, 255, 255))
-                            img.draw_string(self.img_width - 120, 40, f"Slope: {slope:.3f}" if slope is not None else "Slope: None", color=(0, 255, 255))
-                        else:
-                            self.motor_control(0, is_backward=True)
+                    # 向前巡线模式
+                    blobs = img.find_blobs(self.threshold, roi=self.roi, merge=True, pixels_threshold=30)
+                    if blobs:
+                        # 获取最大的blob
+                        main_blob = max(blobs, key=lambda b: b.pixels())
+                        line_x = main_blob.cx()
+                        
+                        error = line_x - (self.roi[0] + self.roi[2] // 2)
+                        # PID控制
+                        pid_output = self.calculate_pid(
+                            error,
+                            self.forward_kp, self.forward_ki, self.forward_kd,
+                            'forward_last_error', 'forward_integral'
+                        )
+                        self.motor_control(pid_output)
+                        img.draw_circle(line_x, 60, 5, color=255)
                     else:
-                        # 向前巡线模式
-                        line_x, slope, detection_points = self.find_line_with_slope(img)
-                        if line_x is not None:
-                            error = line_x - (self.roi[0] + self.roi[2] // 2)
-                            # PID控制（使用向前巡线专用参数）
-                            pid_output = self.calculate_pid(
-                                error,
-                                self.forward_kp, self.forward_ki, self.forward_kd,
-                                'forward_last_error', 'forward_integral'
-                            )
-                            self.motor_control(pid_output)
-                            img.draw_circle(line_x, 60, 5, color=255)
-
-                            # 显示检测点数量（调试信息）
-                            img.draw_string(10, 100, f"Points: {len(detection_points)}", color=255)
-                        else:
-                            self.motor_control(0)
+                        self.motor_control(0)
 
             # 状态显示
             img.draw_string(10, 10, f"Cross: {self.cross_count}", color=255)
@@ -521,9 +371,6 @@ class LineFollower:
             elif self.color_mode:
                 mode_text = "COLOR"
                 mode_color = (255, 0, 255)
-            elif self.backward_mode:
-                mode_text = "BACK"
-                mode_color = (255, 255, 0)
             else:
                 mode_text = "FORWARD"
                 mode_color = (255, 255, 0)

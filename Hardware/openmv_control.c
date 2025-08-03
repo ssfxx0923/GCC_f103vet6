@@ -102,7 +102,7 @@ void OpenMV_Turn_Control(float direction, uint32_t target_lines,float speed)
 {
     if(current_mode != MODE_TURN_ASSIST)
     {
-        OpenMV_Send_Command(3);  // 切换到转弯辅助模式
+        OpenMV_Send_Command(2);  // 切换到转弯辅助模式
         delay_ms(100);
     }
     
@@ -136,7 +136,7 @@ void OpenMV_Turn_Control(float direction, uint32_t target_lines,float speed)
     OpenMV_Send_Command(0);
     turn_count = 0;  
     delay_ms(100);
-    for(int i = 0; 1; i++)
+    for(int i = 0; i < 20; i++)
     {
         OpenMV_Line_Forward_Control(0);
     }
@@ -171,7 +171,7 @@ ColorType_t OpenMV_Get_Color(void)
 {   
     if(current_mode != MODE_COLOR)
     {
-        OpenMV_Send_Command(2);
+        OpenMV_Send_Command(1);
         delay_ms(100);
     }
     return detected_color;
