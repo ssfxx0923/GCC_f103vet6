@@ -6,7 +6,7 @@
 #include <stdlib.h>
 
 // 位置环参数（外环）
-float Position_KP = 4.7f, Position_KI = 0.02f, Position_KD = 0.3f;
+float Position_KP = 4.7f, Position_KI = 0.015f, Position_KD = 0.3f;
 // 串级控制中的速度环参数（内环）
 float Cascade_Speed_KP = 4.5f, Cascade_Speed_KI = 0.0f, Cascade_Speed_KD = 0.15f;
 

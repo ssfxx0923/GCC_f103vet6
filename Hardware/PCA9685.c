@@ -210,3 +210,49 @@ void crazyMe(int i, u16 a, u16 b, u16 tim, u8 xf) // i：控制位 a：目前角度 b：目
     }
 }
 
+/**
+  * @brief  多舵机同时运动控制函数
+  * @note   通过结构体数组控制多个舵机同时运动，支持选择性启用/禁用
+  *         所有启用的舵机将同时开始运动，同时结束运动
+  * @param  ServoMotion* servos
+  *            @arg 舵机运动参数数组指针
+  * @param  u8 servo_count
+  *            @arg 数组中舵机的数量
+  * @param  u16 step_time
+  *            @arg 每步的延时时间(ms)
+  * @param  u8 total_steps
+  *            @arg 总运动步数，步数越多运动越平滑
+  * @date   2025年
+  * @retval None
+  */
+void crazyMe_Multi(ServoMotion* servos, u8 servo_count, u16 step_time, u8 total_steps)
+{
+    u8 step, i;
+    u16 current_pwm;
+    s16 angle_diff;  // 使用有符号数处理角度差
+    
+    // 对每个时间步骤进行循环
+    for(step = 0; step <= total_steps; step++)
+    {
+        // 同时更新所有启用的舵机
+        for(i = 0; i < servo_count; i++)
+        {
+            if(servos[i].enable)  // 只处理启用的舵机
+            {
+                // 计算角度差（带符号，支持正反向运动）
+                angle_diff = (s16)servos[i].target_angle - (s16)servos[i].start_angle;
+                
+                // 计算当前步骤应该到达的角度
+                u16 current_angle = servos[i].start_angle + (angle_diff * step) / total_steps;
+                
+                // 转换为PWM值并设置到对应通道
+                current_pwm = calculate_PWM(current_angle);
+                setPWM(servos[i].channel, 0, current_pwm);
+            }
+        }
+        
+        // 所有舵机同步延时，确保运动协调
+        delay_ms(step_time);
+    }
+}
+

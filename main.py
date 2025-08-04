@@ -86,7 +86,8 @@ class LineFollower:
         # 定义颜色检测区域（中心区域）
         center_x, center_y = self.img_width // 2, self.img_height // 2
         detect_size = min(self.img_width, self.img_height) // 3
-        color_roi = (center_x - detect_size//2, center_y - detect_size//2, detect_size, detect_size)
+        y_offset = self.img_height // 3  # 往上移动图像高度的1/4
+        color_roi = (center_x - detect_size//2, center_y - detect_size//2 - y_offset, detect_size, detect_size)
 
         # 绘制检测区域
         img.draw_rectangle(color_roi, color=(255, 255, 0))
@@ -144,6 +145,38 @@ class LineFollower:
                         return True
 
         return False
+
+    def find_line_multipoint(self, img):
+        """多点检测找线中心（简化版）"""
+        roi_x, roi_y, roi_w, roi_h = self.roi
+        detection_points = []
+
+        # 分5段检测
+        segments = 5
+        for i in range(segments):
+            y_offset = int(roi_h * (i + 1) / (segments + 1))
+            y_pos = roi_y + y_offset
+
+            # 在该y位置检测线
+            line_roi = (roi_x, y_pos - 2, roi_w, 4)
+            blobs = img.find_blobs(self.threshold, roi=line_roi, merge=True, pixels_threshold=5)
+
+            if blobs:
+                line_x = max(blobs, key=lambda b: b.pixels()).cx()
+                detection_points.append(line_x)
+                # 绘制检测点
+                img.draw_circle(line_x, y_pos, 2, color=(255, 0, 0))
+
+        if detection_points:
+            # 简单平均，去除异常值
+            if len(detection_points) >= 3:
+                # 去除最大最小值，取平均
+                detection_points.sort()
+                avg_x = sum(detection_points[1:-1]) / (len(detection_points) - 2)
+            else:
+                avg_x = sum(detection_points) / len(detection_points)
+            return int(avg_x)
+        return None
 
     def detect_intersection(self, img):
         current_time = time.ticks_ms()
@@ -341,13 +374,9 @@ class LineFollower:
                 else:
                     red_led.off()
 
-                    # 向前巡线模式
-                    blobs = img.find_blobs(self.threshold, roi=self.roi, merge=True, pixels_threshold=30)
-                    if blobs:
-                        # 获取最大的blob
-                        main_blob = max(blobs, key=lambda b: b.pixels())
-                        line_x = main_blob.cx()
-                        
+                    # 向前巡线模式（多点检测）
+                    line_x = self.find_line_multipoint(img)
+                    if line_x is not None:
                         error = line_x - (self.roi[0] + self.roi[2] // 2)
                         # PID控制
                         pid_output = self.calculate_pid(

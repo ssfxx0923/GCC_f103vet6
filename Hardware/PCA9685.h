@@ -28,6 +28,16 @@
 #define ALLLED_ON_H 0xFB
 #define ALLLED_OFF_L 0xFC
 #define ALLLED_OFF_H 0xFD
+
+/* Exported types ------------------------------------------------------------*/
+// 舵机运动参数结构体
+typedef struct {
+    u8 channel;        // 舵机通道号 (0-15)
+    u16 start_angle;   // 起始角度 (0-180)
+    u16 target_angle;  // 目标角度 (0-180)
+    u8 enable;         // 是否启用此舵机 (0=不动作, 1=动作)
+} ServoMotion;
+
 /* Exported functions --------------------------------------------------------*/					
 void PCA9685_Init();
 void PCA9685_write(unsigned char reg,unsigned char data);
@@ -36,6 +46,7 @@ void setPWMFreq(u8 freq);
 void setPWM(u8 num, u16 on, u16 off);
 u16 calculate_PWM(u8 angle);
 void crazyMe(int i,u16 a,u16 b,u16 tim,u8 xf);
+void crazyMe_Multi(ServoMotion* servos, u8 servo_count, u16 step_time, u8 total_steps);
 
 #endif
 
