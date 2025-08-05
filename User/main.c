@@ -49,27 +49,47 @@ int main(){
     // OpenMV_Go_Control(40,2,0.95);
 
 
-     OpenMV_Go_Control(50,2,1.92);
-     delay_ms(2000);
-     OpenMV_Turn_Control(0,4,20);
-     delay_ms(2000);
-     OpenMV_Go_Control(40,2,0.95);
-     delay_ms(2000);
+    //   OpenMV_Go_Control(50,2,1.6);
+    //  delay_ms(2000);
+    //  OpenMV_Turn_Control(0,4,20);
+    //  delay_ms(2000);
+    //  OpenMV_Go_Control(40,2,0.95);
+    //  delay_ms(2000);
 
 
   // OpenMV_Go_Control(40,2,1.2);
   //  delay_ms(5000);
   // //  OpenMV_Go_Control(50,3,0.95);
-  //   OpenMV_Turn_Control(1,3,8);
+  //   OpenMV_Turn_Control(1,3,0);
   //   OpenMV_Go_Control(40,2,0.6);
 
- // OpenMV_Send_Command(3);
+  OpenMV_Send_Command(2);
+
+ //Position_Control_Start_All(-3,30);
 
 
+ 
+//  OpenMV_Go_Control(50,4,1.2);
 
+//  delay_ms(1000);
+
+// int speed = 26;
+
+//  Speed_Control_Start(Motor1, speed);
+//  Speed_Control_Start(Motor2, -speed);
+//  Speed_Control_Start(Motor3, speed);
+//  Speed_Control_Start(Motor4, -speed);
+
+//  delay_ms(3000);
+
+// OpenMV_Go_Control(50,2,1.6);
+
+// delay_ms(1000);
+
+    
       while(1){
-   //     OpenMV_Line_Forward_Control(20);
-  //      OLED_ShowSignedNum(1,1,OpenMV_Get_PID_Output(),5);
+        OLED_ShowSignedNum(1,1,OpenMV_Get_Turn_Count(),5);
+        delay_ms(100);
 
       }
   
