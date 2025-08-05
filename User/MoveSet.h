@@ -5,6 +5,8 @@
 #include "openmv_control.h"
 
 
+//OpenMV_Go_Control(40,2,1.92);         走到中心点
+
 
 
 #endif

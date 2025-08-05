@@ -69,8 +69,8 @@ void OpenMV_Line_Forward_Control(float speed)
         OpenMV_Send_Command(0);
         delay_ms(100);
     }
-    left_speed = speed + pid_output * 0.9f;
-    right_speed = speed - pid_output * 0.9f;
+    left_speed = speed + pid_output * 0.5f;
+    right_speed = speed - pid_output * 0.5f;
     
     Speed_Control_Start(Motor1, left_speed);
     Speed_Control_Start(Motor2, right_speed);

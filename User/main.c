@@ -34,14 +34,9 @@ int main(){
 
 
 
-    
- //  crazyMe_Multi(servo_1,10,10,10);
+  // crazyMe_Multi(servo_1,10,10,10);
 
     // delay_ms(1000);
-    //  crazyMe(8,60,60,10,10);
-
-    //  delay_ms(1000);
-
     //  crazyMe(8,150,150,10,10);
     // delay_ms(1000);
     // crazyMe(9,46,46,10,10);
@@ -54,11 +49,12 @@ int main(){
     // OpenMV_Go_Control(40,2,0.95);
 
 
-    OpenMV_Go_Control(50,2,2.04);
-    delay_ms(5000);
-    // // OpenMV_Go_Control(50,3,0.95);
-    // OpenMV_Turn_Control(1,2,20);
-    // OpenMV_Go_Control(40,2,0.95);
+     OpenMV_Go_Control(50,2,2.0);
+     delay_ms(2000);
+     OpenMV_Turn_Control(1,2,20);
+     delay_ms(2000);
+     OpenMV_Go_Control(40,2,0.95);
+     delay_ms(2000);
 
 
   // OpenMV_Go_Control(40,2,1.2);
@@ -71,11 +67,9 @@ int main(){
 
 
 
-
-
-
       while(1){
-
+   //     OpenMV_Line_Forward_Control(20);
+  //      OLED_ShowSignedNum(1,1,OpenMV_Get_PID_Output(),5);
 
       }
   
