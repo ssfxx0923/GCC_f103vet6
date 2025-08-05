@@ -69,8 +69,8 @@ void OpenMV_Line_Forward_Control(float speed)
         OpenMV_Send_Command(0);
         delay_ms(100);
     }
-    left_speed = speed + pid_output * 0.5f;
-    right_speed = speed - pid_output * 0.5f;
+    left_speed = speed + pid_output * 0.7f;
+    right_speed = speed - pid_output * 0.7f;
     
     Speed_Control_Start(Motor1, left_speed);
     Speed_Control_Start(Motor2, right_speed);
@@ -81,7 +81,7 @@ void OpenMV_Line_Forward_Control(float speed)
 void OpenMV_Go_Control(float speed,uint32_t count,float revolutions)
 {
     uint32_t timeout_counter = 0;
-    const uint32_t max_timeout = 50000;  // 最大超时计数，防止无限循环
+    const uint32_t max_timeout = 50000;  
     
     while(timeout_counter < max_timeout)
     {
@@ -107,7 +107,7 @@ void OpenMV_Turn_Control(float direction, uint32_t target_lines,float speed)
     }
     
     uint32_t timeout_counter = 0;
-    const uint32_t max_timeout = 50000;  // 最大超时计数，防止无限循环
+    const uint32_t max_timeout = 50000;  
     
     while(timeout_counter < max_timeout)
     {

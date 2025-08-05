@@ -13,7 +13,7 @@
 #include "ServoMoveSet.h"
 
 void init(){
-    Stm32_Clock_Init(7);  // 72MHz时钟，设置中断优先级分组2
+    Stm32_Clock_Init(7);  
     
     delay_init(8);
     OLED_Init();
@@ -49,9 +49,9 @@ int main(){
     // OpenMV_Go_Control(40,2,0.95);
 
 
-     OpenMV_Go_Control(50,2,2.0);
+     OpenMV_Go_Control(50,2,1.92);
      delay_ms(2000);
-     OpenMV_Turn_Control(1,2,20);
+     OpenMV_Turn_Control(0,4,20);
      delay_ms(2000);
      OpenMV_Go_Control(40,2,0.95);
      delay_ms(2000);

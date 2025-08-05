@@ -16,7 +16,7 @@ lcd = display.SPIDisplay()
 uart = UART(3, 115200)
 red_led, green_led, blue_led = LED(1), LED(2), LED(3)
 
-# 通信协议定义 - 5字节协议：[0xAA, 模式位, PID位, 交叉线标志位, 颜色位]
+# 通信协议 - 5字节协议：[0xAA, 模式位, PID位, 交叉线标志位, 颜色位]
 PACKET_SYNC = 0xAA  # 同步字节
 
 # 模式位定义
@@ -86,7 +86,7 @@ class LineFollower:
         # 定义颜色检测区域（中心区域）
         center_x, center_y = self.img_width // 2, self.img_height // 2
         detect_size = min(self.img_width, self.img_height) // 3
-        y_offset = self.img_height // 3  # 往上移动图像高度的1/4
+        y_offset = self.img_height // 3  
         color_roi = (center_x - detect_size//2, center_y - detect_size//2 - y_offset, detect_size, detect_size)
 
         # 绘制检测区域
@@ -122,7 +122,7 @@ class LineFollower:
         return self.detected_color, detection_results
 
     def detect_vertical_line(self, img):
-        """检测竖线（转弯辅助用）"""
+        """检测竖线"""
         current_time = time.ticks_ms()
         center_x, center_y = self.img_width // 2, self.img_height // 2
 
@@ -147,7 +147,7 @@ class LineFollower:
         return False
 
     def find_line_multipoint(self, img):
-        """多点检测找线中心（简化版）"""
+        """多点检测找线中心"""
         roi_x, roi_y, roi_w, roi_h = self.roi
         detection_points = []
 
@@ -215,8 +215,6 @@ class LineFollower:
         return False
 
     def calculate_pid(self, error, kp, ki, kd, last_error_attr, integral_attr):
-        """计算PID输出，支持不同的PID参数集"""
-        # 获取当前的积分和上次误差
         integral = getattr(self, integral_attr)
         last_error = getattr(self, last_error_attr)
 
@@ -238,7 +236,7 @@ class LineFollower:
     def motor_control(self, steering_value, is_cross=False, is_turn=False, detected_color=None):
         steering_value = max(-100, min(100, int(steering_value)))
 
-        # 5字节数据包格式: [0xAA, 模式位, PID位, 交叉线标志位, 颜色位]
+            # 5字节数据包格式: [0xAA, 模式位, PID位, 交叉线标志位, 颜色位]
         packet = [PACKET_SYNC]
 
         # 模式位
@@ -249,9 +247,9 @@ class LineFollower:
         else:
             packet.append(MODE_FORWARD)
 
-        # PID位：转换为有符号字节（-128到127）
+        # PID位：转换为有符号字节
         if steering_value < 0:
-            pid_byte = (256 + steering_value) & 0xFF  # 补码表示
+            pid_byte = (256 + steering_value) & 0xFF  
         else:
             pid_byte = steering_value & 0xFF
         packet.append(pid_byte)
@@ -333,9 +331,9 @@ class LineFollower:
 
             # 模式控制
             if self.turn_assist_mode:
-                # 转弯辅助模式：只检测竖线
+                # 转弯辅助模式
                 if self.detect_vertical_line(img):
-                    self.motor_control(0, is_turn=True)  # 使用专用转弯标志位
+                    self.motor_control(0, is_turn=True)  
                     img.draw_string(10, 55, "VLine Detected", color=(0, 255, 255), scale=1)
                 else:
                     self.motor_control(0)
@@ -374,7 +372,7 @@ class LineFollower:
                 else:
                     red_led.off()
 
-                    # 向前巡线模式（多点检测）
+                    # 向前巡线模式
                     line_x = self.find_line_multipoint(img)
                     if line_x is not None:
                         error = line_x - (self.roi[0] + self.roi[2] // 2)
@@ -404,8 +402,6 @@ class LineFollower:
                 mode_text = "FORWARD"
                 mode_color = (255, 255, 0)
             img.draw_string(10, 85, f"Mode: {mode_text}", color=mode_color)
-
-            # 将处理后的图像显示到LCD屏幕上
             lcd.write(img)
 
 # 主程序

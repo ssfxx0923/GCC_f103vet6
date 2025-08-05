@@ -3,7 +3,7 @@
 
 #include "sys.h"
 
-// 协议常量定义 - 5字节协议：[0xAA, 模式位, PID位, 交叉线标志位, 颜色位]
+// 协议常量定义 
 #define PACKET_SYNC 0xAA
 
 // 模式位定义
