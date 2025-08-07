@@ -8,7 +8,9 @@ static uint32_t cross_count = 0;
 static uint32_t turn_count = 0;
 static uint8_t current_mode = MODE_FORWARD;  // 当前OpenMV模式
 static uint8_t flag_status = FLAG_NONE;   // 当前标志状态
-static ColorType_t detected_color = COLOR_NONE;  // 检测到的颜色
+static uint8_t detected_color = 0;  // 检测到的颜色标号
+static uint8_t color_array[COLOR_COUNT];  // 颜色数组，存储按顺序记录的颜色
+static uint8_t color_count = 0;  // 已记录颜色数量
 
 void OpenMV_Control_Init(void)
 {
@@ -17,7 +19,13 @@ void OpenMV_Control_Init(void)
     turn_count = 0;
     current_mode = MODE_FORWARD;  // 默认向前巡线
     flag_status = FLAG_NONE;
-    detected_color = COLOR_NONE;  // 默认无颜色检测
+    detected_color = 0;  // 默认无颜色检测
+    
+    // 初始化颜色数组
+    color_count = 0;
+    for(int i = 0; i < COLOR_COUNT; i++) {
+        color_array[i] = 0;
+    }
 }
 
 void OpenMV_Process_Data(uint8_t *data, uint8_t len)
@@ -47,15 +55,14 @@ void OpenMV_Process_Data(uint8_t *data, uint8_t len)
             turn_count++;  // 累计转弯检测次数
         }
         
-        // 解析颜色位
+        // 解析颜色位 - 直接使用数字标号
         uint8_t color_byte = data[4];
-        switch(color_byte) {
-            case 1: detected_color = COLOR_RED; break;
-            case 2: detected_color = COLOR_BLACK; break;
-            case 3: detected_color = COLOR_WHITE; break;
-            case 4: detected_color = COLOR_BLUE; break;
-            case 5: detected_color = COLOR_GREEN; break;
-            default: detected_color = COLOR_NONE; break;
+        detected_color = color_byte;  // 0=无, 1=红, 2=蓝, 3=绿, 4=白, 5=黑
+        
+        // 如果检测到新颜色且不是黑色和无颜色，记录到数组
+        if(color_byte > 0 && color_byte != 5 && color_count < COLOR_COUNT) {  // 不记录黑色和无颜色
+            OpenMV_Record_Color(color_byte);
+            OpenMV_Send_Color_Recorded(color_count - 1);  // 发送当前索引
         }
     }
 }
@@ -149,6 +156,19 @@ void OpenMV_Send_Command(uint8_t mode)
     Usart2_SendChar(mode);
 }
 
+void OpenMV_Send_Color_Recorded(uint8_t color_index)
+{
+    // 发送颜色记录确认命令
+    uint8_t data[2];
+    data[0] = CMD_COLOR_RECORDED;  // 命令类型
+    data[1] = color_index;         // 直接发送索引
+    
+    // 发送两个字节
+    for(int i = 0; i < 2; i++) {
+        Usart2_SendChar(data[i]);
+    }
+}
+
 
 // Getter函数
 uint32_t OpenMV_Get_Cross_Count(void)
@@ -166,13 +186,45 @@ int8_t OpenMV_Get_PID_Output(void)
     return pid_output;
 }
 
-ColorType_t OpenMV_Get_Color(void)
+uint8_t OpenMV_Get_Color(uint8_t index)
 {   
-    if(current_mode != MODE_COLOR)
-    {
-        OpenMV_Send_Command(1);
-        delay_ms(100);
+    if(index == 0xFF) {  // 特殊值，返回当前检测的颜色
+        if(current_mode != MODE_COLOR)
+        {
+            OpenMV_Send_Command(1);
+            delay_ms(100);
+        }
+        return detected_color;
     }
-    return detected_color;
+    
+    // 按索引返回指定位置的颜色
+    if(index < color_count) {
+        return color_array[index];
+    }
+    return 0;  // 超出范围返回0
+}
+
+void OpenMV_Record_Color(uint8_t color_value)
+{
+    // 检查是否已经记录过这个颜色
+    for(int i = 0; i < color_count; i++) {
+        if(color_array[i] == color_value) {
+            return;  // 已经记录过，不重复添加
+        }
+    }
+    
+    // 检查是否还有空间
+    if(color_count >= COLOR_COUNT) {
+        return;  // 数组已满
+    }
+    
+    // 添加新颜色
+    color_array[color_count] = color_value;
+    color_count++;
+}
+
+uint8_t* OpenMV_Get_Color_Array(void)
+{
+    return color_array;
 }
 
