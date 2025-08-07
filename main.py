@@ -5,18 +5,15 @@ sensor.reset()
 sensor.set_pixformat(sensor.RGB565)
 sensor.set_framesize(sensor.QQVGA)
 sensor.skip_frames(time=1000)
-sensor.set_auto_gain(False)
-sensor.set_auto_whitebal(False)
 sensor.set_vflip(True)
 sensor.set_hmirror(True)
 clock = time.clock()
-
 lcd = display.SPIDisplay()
 
 uart = UART(3, 115200)
 red_led, green_led, blue_led = LED(1), LED(2), LED(3)
 
-# 通信协议
+# 通信协�??
 PACKET_SYNC = 0xAA
 
 MODE_FORWARD = 0x00
@@ -41,7 +38,7 @@ class LineFollower:
 
         self.cross_count = self.cross_confirm_count = 0
         self.last_cross_time = 0
-        self.cross_threshold = 800
+        self.cross_threshold = 900
         self.cross_confirm_threshold = 1
 
         self.img_width, self.img_height = sensor.width(), sensor.height()
@@ -64,7 +61,7 @@ class LineFollower:
         self.turn_assist_mode = False
         self.last_vertical_time = 0
 
-        # 转向检测状态
+        # �?向�?�测状�?
         self.turn_state = 'idle'
 
     def detect_color(self, img):
@@ -113,12 +110,12 @@ class LineFollower:
         center_roi = (center_x - roi_w//2, center_y, roi_w, roi_h)
         right_roi = (center_x + gap - roi_w//2, center_y, roi_w, roi_h)
 
-        # 检测黑色区域
+        # 检测黑色区�?
         left_line = len(img.find_blobs(self.threshold, roi=left_roi, pixels_threshold=30)) > 0
         center_line = len(img.find_blobs(self.threshold, roi=center_roi, pixels_threshold=3)) > 0
         right_line = len(img.find_blobs(self.threshold, roi=right_roi, pixels_threshold=3)) > 0
 
-        # 扫掠检测状态机
+        # �?掠�?�测状态机
         turn_detected = False
 
         if self.turn_state == 'idle':
@@ -214,17 +211,17 @@ class LineFollower:
         integral = getattr(self, integral_attr)
         last_error = getattr(self, last_error_attr)
 
-        # 更新积分
+        # 更新�?�?
         integral += error
         setattr(self, integral_attr, integral)
 
-        # 计算微分
+        # 计算�?�?
         derivative = error - last_error
 
         # PID输出
         output = kp * error + ki * integral + kd * derivative
 
-        # 更新上次误差
+        # 更新上�?��??�?
         setattr(self, last_error_attr, error)
 
         return output
@@ -266,12 +263,12 @@ class LineFollower:
             packet.append(COLOR_NONE)
 
         uart.write(bytes(packet))
-        
-        # 打印串口发送信息
+
+        # 打印串口发送信�?
         flag_text = "CROSS" if is_cross else ("TURN" if is_turn else "NONE")
         color_text = detected_color or "NONE"
         mode_text = "TURN_ASSIST" if self.turn_assist_mode else ("COLOR" if self.color_mode else "FORWARD")
-        print(f"UART发送: {[hex(b) for b in packet]} - 模式:{mode_text}, PID:{steering_value}, 标志:{flag_text}, 颜色:{color_text}")
+        print(f"UART发�?: {[hex(b) for b in packet]} - 模式:{mode_text}, PID:{steering_value}, 标志:{flag_text}, 颜色:{color_text}")
     def process_uart_commands(self):
         if uart.any():
             cmd_data = uart.read(1)

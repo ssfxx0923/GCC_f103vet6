@@ -32,64 +32,34 @@ int main(){
     init();
     
 
-
-
-  // crazyMe_Multi(servo_1,10,10,10);
-
-    // delay_ms(1000);
-    //  crazyMe(8,150,150,10,10);
-    // delay_ms(1000);
-    // crazyMe(9,46,46,10,10);
-
-
- //    OpenMV_Go_Control(40,2,0.95);
-
-  //  Position_Control_Start_All(-4,40);
-
-    // OpenMV_Go_Control(40,2,0.95);
-
-
-    //   OpenMV_Go_Control(50,2,1.6);
-    //  delay_ms(2000);
-    //  OpenMV_Turn_Control(0,4,20);
-    //  delay_ms(2000);
-    //  OpenMV_Go_Control(40,2,0.95);
-    //  delay_ms(2000);
-
-
-  // OpenMV_Go_Control(40,2,1.2);
-  //  delay_ms(5000);
-  // //  OpenMV_Go_Control(50,3,0.95);
-  //   OpenMV_Turn_Control(1,3,0);
-  //   OpenMV_Go_Control(40,2,0.6);
-
-  OpenMV_Send_Command(2);
-
- //Position_Control_Start_All(-3,30);
-
-
- 
-//  OpenMV_Go_Control(50,4,1.2);
-
-//  delay_ms(1000);
-
-// int speed = 26;
-
-//  Speed_Control_Start(Motor1, speed);
-//  Speed_Control_Start(Motor2, -speed);
-//  Speed_Control_Start(Motor3, speed);
-//  Speed_Control_Start(Motor4, -speed);
-
-//  delay_ms(3000);
-
-// OpenMV_Go_Control(50,2,1.6);
-
-// delay_ms(1000);
-
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
+      
+    GPIO_InitTypeDef GPIO_InitStructure;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(GPIOC, &GPIO_InitStructure);
     
+    // 设置PC1为高电平
+    GPIO_SetBits(GPIOC, GPIO_Pin_1);
+
+
+    // OpenMV_Go_Control(50,2,1.6);
+    // delay_ms(3000);
+    // Position_Control_Start_All(0.5,40);
+    // delay_ms(3000);
+    // Position_Control_Start_All(0.6,40);
+    // delay_ms(3000);
+    // OpenMV_Go_Control(40,1,0.6);
+    // delay_ms(3000);
+    // Position_Control_Start_All(-1.6,30); 
+    // delay_ms(3000);
+    // OpenMV_Turn_Control(1,2,20);
+    // delay_ms(3000);
+    // OpenMV_Go_Control(40,1,1.2);
+    
+
       while(1){
-        OLED_ShowSignedNum(1,1,OpenMV_Get_Turn_Count(),5);
-        delay_ms(100);
 
       }
   

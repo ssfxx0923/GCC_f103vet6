@@ -82,7 +82,7 @@ void OpenMV_Go_Control(float speed,uint32_t count,float revolutions)
 {
     uint32_t timeout_counter = 0;
     const uint32_t max_timeout = 50000;  
-    
+    cross_count = 0;
     while(timeout_counter < max_timeout)
     {
         OpenMV_Line_Forward_Control(speed);
@@ -95,7 +95,7 @@ void OpenMV_Go_Control(float speed,uint32_t count,float revolutions)
         }
     }
     Position_Control_Start_All(revolutions, speed);
-    cross_count = 0;
+    OLED_ShowNum(3,1,cross_count,3);
 }
 
 void OpenMV_Turn_Control(float direction, uint32_t target_lines,float speed)
@@ -108,7 +108,7 @@ void OpenMV_Turn_Control(float direction, uint32_t target_lines,float speed)
     
     uint32_t timeout_counter = 0;
     const uint32_t max_timeout = 50000;  
-    
+    turn_count = 0; 
     while(timeout_counter < max_timeout)
     {
         if(direction > 0)
@@ -134,7 +134,6 @@ void OpenMV_Turn_Control(float direction, uint32_t target_lines,float speed)
         }
     }
     OpenMV_Send_Command(0);
-    turn_count = 0;  
     delay_ms(100);
     for(int i = 0; i < 20; i++)
     {
