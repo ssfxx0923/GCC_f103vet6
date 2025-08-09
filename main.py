@@ -1,5 +1,5 @@
 
-import sensor, time, math, display
+import sensor, time, display
 from pyb import UART, LED
 
 sensor.reset()
@@ -8,35 +8,24 @@ sensor.set_framesize(sensor.QQVGA)
 sensor.set_auto_gain(1)
 sensor.set_auto_whitebal(1)
 sensor.skip_frames(time=1000)
-sensor.set_vflip(True)
-sensor.set_hmirror(True)
+# sensor.set_vflip(True)
+# sensor.set_hmirror(True)
 clock = time.clock()
 lcd = display.SPIDisplay()
 
 uart = UART(3, 115200)
 red_led, green_led, blue_led = LED(1), LED(2), LED(3)
+
+# 协议常量
 PACKET_SYNC = 0xAA
+MODES = [0x00, 0x01, 0x02]  # FORWARD, COLOR, TURN_ASSIST
+FLAGS = [0x00, 0x01, 0x02]  # NONE, CROSS, TURN
+CMDS = [0x20, 0x21, 0x22]   # RECORDED, DETECT, RESULT
 
-# 工作模式定义
-MODE_FORWARD = 0x00
-MODE_COLOR = 0x01
-MODE_TURN_ASSIST = 0x02
-
-# 检测标志定义
-FLAG_NONE = 0x00
-CROSS_DETECTED = 0x01
-TURN_DETECTED = 0x02
-
-# 颜色编码定义
-COLOR_NONE = 0x00
-COLOR_RED = 0x01
-COLOR_BLUE = 0x02
-COLOR_GREEN = 0x03
-COLOR_WHITE = 0x04
-COLOR_BLACK = 0x05
-
-# 命令类型定义
-CMD_COLOR_RECORDED = 0x20
+# 颜色配置 - 索引对应: red, green, blue, white, black
+COLOR_NAMES = ['red', 'green', 'blue', 'white', 'black']
+COLOR_NUMBERS = [1, 2, 3, 4, 5]
+COLOR_DISPLAYS = [(255,0,0), (0,255,0), (0,0,255), (255,255,255), (128,128,128)]
 
 
 class LineFollower:
@@ -45,491 +34,385 @@ class LineFollower:
         self.forward_kp, self.forward_ki, self.forward_kd = 1.5, 0.0, 0.3
         self.forward_last_error = self.forward_integral = 0
 
-        # 交叉路口检测参数
-        self.cross_count = self.cross_confirm_count = 0
-        self.last_cross_time = 0
-        self.cross_threshold = 900
-        self.cross_confirm_threshold = 1
-
         # 图像处理参数
         self.img_width, self.img_height = sensor.width(), sensor.height()
         roi_w, roi_h = self.img_width // 2, self.img_height // 3
         self.roi = ((self.img_width - roi_w) // 2, (self.img_height - roi_h) // 2, roi_w, roi_h)
         self.threshold = [(0, 40, -20, 20, -20, 20)]
 
-        # 颜色检测配置
-        self.color_mode = 1
-        self.color_thresholds = {
-            'red': [(31, 58, 20, 127, 0, 70)],
-            'green': [(13, 47, -124, -12, -9, 52)],
-            'blue': [(10, 26, -1, 11, -9, -28)],
-            'white': [(82, 46, -124, 21, -128, 76)]
-        }
-        self.detected_color = None
-        self.color_detection_confidence = 0
+        # 交叉路口检测
+        self.cross_count = self.cross_confirm_count = 0
+        self.last_cross_time = 0
+
+        # 模式控制
+        self.color_mode = 0
+        self.turn_assist_mode = False
+        self.turn_state = 'idle'
+
+        # 颜色检测参数
+        self.color_thresholds = [
+            [(0, 100, 16, 127, -5, 127)],    # red
+            [(0, 37, -128, -18, -128, 127)], # green
+            [(0, 100, -128, 32, -128, -15)], # blue
+            [(64, 90, -24, 1, 8, 85)]        # white
+        ]
         self.min_color_pixels = 60
-        
-        # 颜色确认机制参数
-        self.color_confirm_duration = 3000
+
+        # 颜色确认和记录
         self.color_confirm_history = []
         self.color_confirm_start_time = 0
         self.confirmed_color = None
-        self.color_confirm_threshold = 10
-        
-        # 已记录颜色管理
-        self.recorded_colors = set()
+        self.confirmed_color_array = [None] * 5
+        self.confirmed_color_count = 0
+        self.detect_black_white_filtered_cache = None
 
-        # 转弯辅助模式参数
-        self.turn_assist_mode = False
-        self.last_vertical_time = 0
-        self.turn_state = 'idle'
+        # 颜色检测请求
+        self.color_detect_request_index = None
+        self.color_detect_mode_active = False
 
     def detect_color(self, img):
+        center_x, center_y = self.img_width // 2, self.img_height // 2
+        roi_w, roi_h = self.img_width // 2, self.img_height // 3
+        color_roi = (center_x - roi_w//2, center_y - roi_h//2, roi_w, roi_h)
+
+        img.draw_rectangle(color_roi, color=(255, 255, 0))
+
         best_color = None
         best_pixels = 0
-        detection_results = {}
 
-        # 颜色显示映射
-        blob_colors = {
-            'red': (255, 0, 0),
-            'green': (0, 255, 0),
-            'blue': (0, 0, 255),
-            'white': (255, 255, 255),
-            'black': (0, 0, 0)
-        }
-
-        # 设置检测区域
-        center_x, center_y = self.img_width // 2, self.img_height // 2
-        detect_size = min(self.img_width, self.img_height) // 3
-        y_offset = self.img_height // 3
-        color_roi = (center_x - detect_size//2, center_y - detect_size//2 - y_offset, detect_size, detect_size)
-
-        # 绘制检测区域
-        img.draw_rectangle(color_roi, color=(255, 255, 0))
-        img.draw_string(10, 40, "RGB COLOR DETECT", color=(255, 255, 0))
-
-        # 第一阶段：检测红绿蓝三原色
-        primary_colors = ['red', 'green', 'blue']
-        for color_name in primary_colors:
-            threshold = self.color_thresholds[color_name]
-            blobs = img.find_blobs(threshold, roi=color_roi, merge=True, pixels_threshold=self.min_color_pixels)
-
+        # 检测红绿蓝
+        for i, color_name in enumerate(['red', 'green', 'blue']):
+            blobs = img.find_blobs(self.color_thresholds[i], roi=color_roi, merge=True, pixels_threshold=self.min_color_pixels)
             if blobs:
                 total_pixels = sum(blob.pixels() for blob in blobs)
-                detection_results[color_name] = total_pixels
-
                 if total_pixels > best_pixels:
                     best_pixels = total_pixels
                     best_color = color_name
-
-                mark_color = blob_colors.get(color_name, (0, 255, 0))
                 for blob in blobs:
-                    img.draw_rectangle(blob.rect(), color=mark_color)
-                    img.draw_cross(blob.cx(), blob.cy(), size=5, color=(255, 255, 255))
+                    img.draw_rectangle(blob.rect(), color=COLOR_DISPLAYS[i])
 
-        # 第二阶段：检测黑白色（如果没有检测到原色）
+        # 如果没有检测到RGB，检测黑白
         if not best_color:
-            best_color, best_pixels, detection_results = self._detect_black_white(img, color_roi, detection_results)
+            best_color = self._detect_black_white(img, color_roi)
 
-        # 显示检测结果
-        self._display_detection_results(img, detection_results, blob_colors)
+        return best_color, {}
 
-        # 更新检测状态
-        if best_color and best_pixels > self.min_color_pixels:
-            self.detected_color = best_color
-            self.color_detection_confidence = best_pixels
-        else:
-            self.detected_color = None
-            self.color_detection_confidence = 0
+    def _detect_black_white(self, img, color_roi):
+        # 过滤RGB色块
+        filtered_img = img.copy()
+        for i in range(3):  # red, green, blue
+            blobs = img.find_blobs(self.color_thresholds[i], roi=color_roi, merge=True, pixels_threshold=self.min_color_pixels)
+            for blob in blobs:
+                filtered_img.draw_rectangle(blob.rect(), color=(128, 128, 128), fill=True)
 
-        return self.detected_color, detection_results
+        # 检测白色
+        white_blobs = filtered_img.find_blobs(self.color_thresholds[3], roi=color_roi, merge=True, pixels_threshold=self.min_color_pixels)
 
-    def _detect_black_white(self, img, color_roi, detection_results):
-        white_threshold = self.color_thresholds['white']
-        white_blobs = img.find_blobs(white_threshold, roi=color_roi, merge=True, pixels_threshold=60)
- 
         if white_blobs:
-            largest_blob = max(white_blobs, key=lambda b: b.pixels())
-            blob_pixels = largest_blob.pixels()
- 
-            if 1 <= blob_pixels <= 5000:
-                blob_width = largest_blob.w()
-                blob_height = largest_blob.h()
-                aspect_ratio = blob_height / blob_width if blob_width > 0 else 0
- 
-                # 根据长宽比判断颜色
-                if aspect_ratio > 0.7:
-                    detected_color_name = 'white'
-                    mark_color = (255, 255, 255)
-                else:
-                    detected_color_name = 'black'
-                    mark_color = (128, 128, 128)
- 
-                detection_results[detected_color_name] = blob_pixels
-                
-                # 绘制检测结果
-                img.draw_rectangle(largest_blob.rect(), color=mark_color)
-                img.draw_cross(largest_blob.cx(), largest_blob.cy(), size=5, color=(255, 255, 255))
-                img.draw_string(10, 145, f"W:{blob_width} H:{blob_height} R:{aspect_ratio:.2f}", color=(255, 255, 0))
-                
-                return detected_color_name, blob_pixels, detection_results
-        else:
-            # 没有找到白色色块，默认为黑色
-            detected_color_name = 'black'
-            mark_color = (128, 128, 128)
-            
-            detection_results[detected_color_name] = 0
-            
-            center_x = color_roi[0] + color_roi[2] // 2
-            center_y = color_roi[1] + color_roi[3] // 2
-            img.draw_cross(center_x, center_y, size=10, color=mark_color)
-            img.draw_string(10, 145, "No white blob found - BLACK", color=(255, 255, 0))
-            
-            return detected_color_name, 1, detection_results
-    
-    def _display_detection_results(self, img, detection_results, blob_colors):
-        """显示检测结果的辅助函数"""
-        y_pos = 50
-        for color_name, pixels in detection_results.items():
-            img.draw_string(10, y_pos, f"{color_name}: {pixels}",
-                           color=blob_colors.get(color_name, (255, 255, 255)))
-            y_pos += 15
+            for blob in white_blobs:
+                if blob.w() / blob.h() < 1.7 if blob.h() > 0 else False:
+                    if blob.pixels() > 400:
+                        img.draw_rectangle(blob.rect(), color=(255, 255, 255))
+                        return 'white'
+                    else:
+                        img.draw_rectangle(blob.rect(), color=(128, 128, 128))
+                        return 'black'
+        return 'black'
 
     def detect_vertical_line(self, img):
-
         center_x, center_y = self.img_width // 2, self.img_height // 2
-        roi_w = self.img_width // 10
-        roi_h = self.img_height // 5
-        gap = int(self.img_width // 2.5)
+        roi_w, roi_h = self.img_width // 10, self.img_height // 5
+        gap = self.img_width // 3
 
-        left_roi = (center_x - gap - roi_w//2, center_y, roi_w, roi_h)
-        center_roi = (center_x - roi_w//2, center_y, roi_w, roi_h)
-        right_roi = (center_x + gap - roi_w//2, center_y, roi_w, roi_h)
+        rois = [
+            (center_x - gap - roi_w//2, center_y, roi_w, roi_h),  # left
+            (center_x - roi_w//2, center_y, roi_w, roi_h),       # center
+            (center_x + gap - roi_w//2, center_y, roi_w, roi_h)  # right
+        ]
 
-        # 检测黑色区�?
-        left_line = len(img.find_blobs(self.threshold, roi=left_roi, pixels_threshold=30)) > 0
-        center_line = len(img.find_blobs(self.threshold, roi=center_roi, pixels_threshold=3)) > 0
-        right_line = len(img.find_blobs(self.threshold, roi=right_roi, pixels_threshold=3)) > 0
+        lines = [len(img.find_blobs(self.threshold, roi=roi, pixels_threshold=15)) > 0 for roi in rois]
 
-        # �?掠�?�测状态机
         turn_detected = False
+        if self.turn_state == 'idle' and (lines[0] or lines[2]) and not lines[1]:
+            self.turn_state = 'ready'
+        elif self.turn_state == 'ready' and lines[1]:
+            self.turn_state = 'triggered'
+            turn_detected = True
+            print("检测到转弯!")
+        elif self.turn_state == 'triggered' and not any(lines):
+            self.turn_state = 'idle'
 
-        if self.turn_state == 'idle':
-            if (left_line or right_line) and not center_line:
-                self.turn_state = 'side_ready'
-                img.draw_string(10, 80, "SIDE READY", color=(255, 255, 0))
-
-        elif self.turn_state == 'side_ready':
-            if center_line:
-                self.turn_state = 'triggered'
-                turn_detected = True
-                img.draw_cross(center_x, center_y, size=15, color=(255, 255, 0))
-                img.draw_string(10, 80, "TRIGGERED!", color=(0, 255, 0))
-
-        elif self.turn_state == 'triggered':
-            if not left_line and not center_line and not right_line:
-                self.turn_state = 'idle'
-
-        # 绘制ROI
-        left_color = (0, 255, 0) if left_line else (255, 0, 0)
-        center_color = (0, 255, 0) if center_line else (255, 0, 0)
-        right_color = (0, 255, 0) if right_line else (255, 0, 0)
-
-        img.draw_rectangle(left_roi, color=left_color)
-        img.draw_rectangle(center_roi, color=center_color)
-        img.draw_rectangle(right_roi, color=right_color)
+        for i, roi in enumerate(rois):
+            img.draw_rectangle(roi, color=(0, 255, 0) if lines[i] else (255, 0, 0))
 
         return turn_detected
 
     def find_line_multipoint(self, img):
-
         roi_x, roi_y, roi_w, roi_h = self.roi
-        detection_points = []
+        points = []
 
-        segments = 5
-        for i in range(segments):
-            y_offset = int(roi_h * (i + 1) / (segments + 1))
-            y_pos = roi_y + y_offset
-
+        for i in range(5):
+            y_pos = roi_y + roi_h * (i + 1) // 6
             line_roi = (roi_x, y_pos - 2, roi_w, 4)
             blobs = img.find_blobs(self.threshold, roi=line_roi, merge=True, pixels_threshold=5)
 
             if blobs:
                 line_x = max(blobs, key=lambda b: b.pixels()).cx()
-                detection_points.append(line_x)
+                points.append(line_x)
                 img.draw_circle(line_x, y_pos, 2, color=(255, 0, 0))
 
-        if detection_points:
-            if len(detection_points) >= 3:
-                detection_points.sort()
-                avg_x = sum(detection_points[1:-1]) / (len(detection_points) - 2)
-            else:
-                avg_x = sum(detection_points) / len(detection_points)
-            return int(avg_x)
+        if points:
+            points.sort()
+            return int(sum(points[1:-1]) / (len(points) - 2)) if len(points) >= 3 else int(sum(points) / len(points))
         return None
 
     def detect_intersection(self, img):
-
         current_time = time.ticks_ms()
         center_x, center_y = self.img_width // 2, self.img_height // 2
         roi_size = min(self.img_width, self.img_height) // 8
-        h_dist = self.img_width // 4
 
         rois = [
-            (center_x - h_dist - roi_size//2, center_y - roi_size//2, roi_size, roi_size),  # left
-            (center_x + h_dist - roi_size//2, center_y - roi_size//2, roi_size, roi_size)   # right
+            (center_x - self.img_width//4 - roi_size//2, center_y - roi_size//2, roi_size, roi_size),
+            (center_x + self.img_width//4 - roi_size//2, center_y - roi_size//2, roi_size, roi_size)
         ]
 
-        directions_with_lines = 0
+        lines_count = 0
         for roi in rois:
             blobs = img.find_blobs(self.threshold, roi=roi, merge=True, pixels_threshold=20)
-            if blobs:
-                density = sum(blob.pixels() for blob in blobs) / (roi[2] * roi[3])
-                if density > 0.15:
-                    directions_with_lines += 1
+            if blobs and sum(blob.pixels() for blob in blobs) / (roi[2] * roi[3]) > 0.15:
+                lines_count += 1
             img.draw_rectangle(roi, color=(0, 255, 0) if blobs else (255, 0, 0))
 
-        if directions_with_lines == 2:
+        if lines_count == 2:
             self.cross_confirm_count += 1
-            if self.cross_confirm_count >= self.cross_confirm_threshold:
-                if current_time - self.last_cross_time > self.cross_threshold:
-                    self.cross_count += 1
-                    self.last_cross_time = current_time
-                    self.cross_confirm_count = 0
-                    blue_led.on()
-                    img.draw_cross(center_x, center_y, size=20, color=(255, 255, 0))
-                    return True
+            if self.cross_confirm_count >= 1 and current_time - self.last_cross_time > 900:
+                self.cross_count += 1
+                self.last_cross_time = current_time
+                self.cross_confirm_count = 0
+                blue_led.on()
+                print(f"检测到交叉路口! 总计数: {self.cross_count}")
+                return True
         else:
             self.cross_confirm_count = 0
-
+            
         blue_led.off()
         return False
 
-    
-    def calculate_pid(self, error, kp, ki, kd, last_error_attr, integral_attr):
 
-        integral = getattr(self, integral_attr)
-        last_error = getattr(self, last_error_attr)
-
-        # 更新�?�?
-        integral += error
-        setattr(self, integral_attr, integral)
-
-        # 计算�?�?
-        derivative = error - last_error
-
-        # PID输出
-        output = kp * error + ki * integral + kd * derivative
-
-        # 更新上�?��??�?
-        setattr(self, last_error_attr, error)
-
+    def calculate_pid(self, error):
+        self.forward_integral += error
+        derivative = error - self.forward_last_error
+        output = self.forward_kp * error + self.forward_ki * self.forward_integral + self.forward_kd * derivative
+        self.forward_last_error = error
         return output
 
     def motor_control(self, steering_value, is_cross=False, is_turn=False, detected_color=None):
-
         steering_value = max(-100, min(100, int(steering_value)))
-
-        packet = [PACKET_SYNC]
-
-        if self.color_mode:
-            packet.append(MODE_COLOR)
-        elif self.turn_assist_mode:
-            packet.append(MODE_TURN_ASSIST)
-        else:
-            packet.append(MODE_FORWARD)
-
-        if steering_value < 0:
-            pid_byte = (256 + steering_value) & 0xFF
-        else:
-            pid_byte = steering_value & 0xFF
-        packet.append(pid_byte)
-
-        if is_cross:
-            packet.append(CROSS_DETECTED)
-        elif is_turn:
-            packet.append(TURN_DETECTED)
-        else:
-            packet.append(FLAG_NONE)
-        if detected_color:
-            # 简化映射，直接使用数字标号
-            color_map = {
-                'red': 1,
-                'blue': 2, 
-                'green': 3,
-                'white': 4,
-                'black': 5
-            }
-            packet.append(color_map.get(detected_color, 0))  # 0表示无颜色
-        else:
-            packet.append(COLOR_NONE)
-
+        
+        mode = MODES[1] if self.color_mode else (MODES[2] if self.turn_assist_mode else MODES[0])
+        flag = FLAGS[1] if is_cross else (FLAGS[2] if is_turn else FLAGS[0])
+        color_num = COLOR_NUMBERS[COLOR_NAMES.index(detected_color)] if detected_color in COLOR_NAMES else 0
+        
+        pid_byte = (256 + steering_value) & 0xFF if steering_value < 0 else steering_value & 0xFF
+        packet = [PACKET_SYNC, mode, pid_byte, flag, color_num]
         uart.write(bytes(packet))
-
-        # 打印串口发送信�?
-        flag_text = "CROSS" if is_cross else ("TURN" if is_turn else "NONE")
-        color_text = detected_color or "NONE"
-        mode_text = "TURN_ASSIST" if self.turn_assist_mode else ("COLOR" if self.color_mode else "FORWARD")
-        print(f"UART发送: {[hex(b) for b in packet]} - 模式:{mode_text}, PID:{steering_value}, 标志:{flag_text}, 颜色:{color_text}")
+        
+        # 打印发送的数据包信息
+        mode_names = ["FORWARD", "COLOR", "TURN_ASSIST"]
+        flag_names = ["NONE", "CROSS", "TURN"]
+        color_name = detected_color if detected_color else "NONE"
+        mode_name = mode_names[mode] if mode < len(mode_names) else "UNKNOWN"
+        flag_name = flag_names[flag] if flag < len(flag_names) else "UNKNOWN"
+        
+        print(f"发送: 模式={mode_name}, PID={steering_value}, 标志={flag_name}, 颜色={color_name}")
+        print(f"数据包: {[hex(b) for b in packet]}")
 
     def process_uart_commands(self):
-
         if uart.any():
             cmd_data = uart.read()
             if len(cmd_data) >= 1:
                 cmd = cmd_data[0]
-
-                # 模式切换命令
-                if cmd == MODE_FORWARD:
-                    self.color_mode = False
-                    self.turn_assist_mode = False
-                elif cmd == MODE_COLOR:
-                    self.color_mode = True
-                    self.turn_assist_mode = False
-                elif cmd == MODE_TURN_ASSIST:
-                    self.turn_assist_mode = True
-                    self.color_mode = False
+                
+                # 打印接收到的命令
+                print(f"接收命令: {[hex(b) for b in cmd_data]}")
+                
+                if cmd in MODES:
+                    mode_names = ["FORWARD", "COLOR", "TURN_ASSIST"]
+                    mode_name = mode_names[cmd] if cmd < len(mode_names) else "UNKNOWN"
+                    print(f"模式切换: {mode_name}")
                     
-                # 颜色记录确认命令
-                if len(cmd_data) >= 2 and cmd == 0x20:
-                    color_index = cmd_data[1]
-                    print(f"主控确认记录了第{color_index}个颜色")
+                    self.color_mode = (cmd == MODES[1])
+                    self.turn_assist_mode = (cmd == MODES[2])
+                    self.color_detect_mode_active = False
+                    
+                elif len(cmd_data) >= 2:
+                    if cmd == CMDS[1]:  # COLOR_DETECT
+                        self.color_detect_request_index = cmd_data[1]
+                        print(f"收到颜色检测请求: 索引={self.color_detect_request_index}")
+                        self.color_detect_mode_active = True
+                        self.color_mode = True
+                        self._reset_color_confirmation()
+                        
+                    elif cmd == CMDS[0]:  # COLOR_RECORDED
+                        color_index = cmd_data[1]
+                        print(f"主控确认记录颜色: 索引={color_index}")
+                        if color_index < 5 and self.confirmed_color:
+                            self.confirmed_color_array[color_index] = self.confirmed_color
+                            self.confirmed_color_count = max(self.confirmed_color_count, color_index + 1)
+                            print(f"OpenMV记录颜色: 索引={color_index}, 颜色={self.confirmed_color}")
+                        self.color_detect_mode_active = False
+                        self.color_detect_request_index = None
+                        self.confirmed_color = None
 
     def confirm_color_detection(self, detected_color):
-
         current_time = time.ticks_ms()
-        
-        if detected_color is None:
+
+        if not detected_color:
             self._reset_color_confirmation()
             return None
-            
-        # 新检测开始
+
         if not self.color_confirm_history:
             self.color_confirm_start_time = current_time
-            self.color_confirm_history.append((detected_color, current_time))
-            return None
-            
-        # 检查超时
-        if current_time - self.color_confirm_start_time > self.color_confirm_duration:
-            self.color_confirm_history = [(detected_color, current_time)]
+
+        if current_time - self.color_confirm_start_time > 3000:
+            self.color_confirm_history = []
             self.color_confirm_start_time = current_time
-            return None
-            
-        # 添加当前检测
+
         self.color_confirm_history.append((detected_color, current_time))
-        
-        # 统计有效检测次数
-        color_counts = {}
+
+        # 统计最近3秒内的检测次数
+        recent_detections = {}
         for color, timestamp in self.color_confirm_history:
-            if current_time - timestamp <= self.color_confirm_duration:
-                color_counts[color] = color_counts.get(color, 0) + 1
-                
-        # 检查确认条件
-        for color, count in color_counts.items():
-            if count >= self.color_confirm_threshold:
+            if current_time - timestamp <= 3000:
+                recent_detections[color] = recent_detections.get(color, 0) + 1
+
+        # 检查是否有颜色被检测到足够次数
+        for color, count in recent_detections.items():
+            if count >= 8:
                 self.confirmed_color = color
+                print(f"颜色确认: {color} (检测次数: {count})")
                 return self.process_confirmed_color(color)
-                
+
         return None
-    
+
     def _reset_color_confirmation(self):
         self.color_confirm_history = []
         self.color_confirm_start_time = 0
         self.confirmed_color = None
-    
+
+
+
+    def determine_color_by_index(self, index, detected_color):
+        if index < 3:
+            return detected_color
+        elif index == 3:
+            return self._determine_fourth_color(detected_color)
+        elif index == 4:
+            return self._determine_fifth_color()
+        else:
+            return detected_color
+
+    def _determine_fourth_color(self, c4_detected):
+        recorded_colors = set(filter(None, self.confirmed_color_array[:3]))
+
+        if c4_detected in {'red', 'green', 'blue'}:
+            if c4_detected in recorded_colors:
+                if 'black' in recorded_colors and 'white' not in recorded_colors:
+                    return 'white'
+                elif 'white' in recorded_colors and 'black' not in recorded_colors:
+                    return 'black'
+                else:
+                    return self.detect_black_white_filtered_cache or 'black'
+            else:
+                return c4_detected
+        else:
+            if 'black' in recorded_colors and 'white' not in recorded_colors:
+                return 'white'
+            elif 'white' in recorded_colors and 'black' not in recorded_colors:
+                return 'black'
+            else:
+                return 'black'
+
+    def _determine_fifth_color(self):
+        all_colors = {'red', 'green', 'blue', 'white', 'black'}
+        recorded_colors = set(filter(None, self.confirmed_color_array[:4]))
+        remaining = all_colors - recorded_colors
+        return list(remaining)[0] if remaining else 'black'
+
     def process_confirmed_color(self, confirmed_color):
-        if confirmed_color in self.recorded_colors:
-            return 'black'
-        return confirmed_color
+        if self.color_detect_request_index is None:
+            return confirmed_color
+        return self.determine_color_by_index(self.color_detect_request_index, confirmed_color)
+
+    def send_color_result(self, index, color):
+        color_number = COLOR_NUMBERS[COLOR_NAMES.index(color)] if color in COLOR_NAMES else 0
+        packet = [CMDS[2], index, color_number]
+        uart.write(bytes(packet))
+        
+        # 打印颜色检测结果发送信息
+        print(f"发送颜色结果: 索引={index}, 颜色={color}, 编号={color_number}")
+        print(f"颜色结果包: {[hex(b) for b in packet]}")
 
     def run(self):
         green_led.on()
         while True:
             clock.tick()
-
-            # 处理串口命令
             self.process_uart_commands()
 
-            img = sensor.snapshot().lens_corr(strength = 2.8, zoom = 1.0)
+            img = sensor.snapshot().lens_corr(strength=1.0, zoom=1.0)
             center_x, center_y = self.img_width // 2, self.img_height // 2
             img.draw_cross(center_x, center_y, size=5, color=(255, 255, 255))
 
             if self.turn_assist_mode:
-                if self.detect_vertical_line(img):
-                    self.motor_control(0, is_turn=True)
-                else:
-                    self.motor_control(0)
+                self.motor_control(0, is_turn=self.detect_vertical_line(img))
 
             elif self.color_mode:
-                detected_color, color_results = self.detect_color(img)
+                detected_color, _ = self.detect_color(img)
 
-                # 使用确认机制处理检测结果
+                # 更新黑白检测缓存用于第4个颜色判断
+                center_x, center_y = self.img_width // 2, self.img_height // 2
+                roi_w, roi_h = self.img_width // 2, self.img_height // 3
+                color_roi = (center_x - roi_w//2, center_y - roi_h//2, roi_w, roi_h)
+                self.detect_black_white_filtered_cache = self._detect_black_white(img, color_roi)
+
                 confirmed_color = self.confirm_color_detection(detected_color)
 
                 if confirmed_color:
-                    self.motor_control(0, detected_color=confirmed_color)
-                    color_display_colors = {
-                        'red': (255, 0, 0),
-                        'green': (0, 255, 0),
-                        'blue': (0, 0, 255),
-                        'white': (255, 255, 255),
-                        'black': (128, 128, 128)
-                    }
-                    display_color = color_display_colors.get(confirmed_color, (255, 255, 0))
-                    img.draw_string(10, 115, f"{confirmed_color.upper()} [CONFIRMED]", color=display_color)
-                    # 重置确认历史，防止重复发送
+                    if self.color_detect_mode_active and self.color_detect_request_index is not None:
+                        print(f"颜色确认完成: 索引={self.color_detect_request_index}, 颜色={confirmed_color}")
+                        self.send_color_result(self.color_detect_request_index, confirmed_color)
+                    else:
+                        print(f"检测到颜色: {confirmed_color}")
+                        self.motor_control(0, detected_color=confirmed_color)
                     self.color_confirm_history = []
                 else:
-                    # 显示检测进度
-                    if detected_color:
-                        progress = len(self.color_confirm_history)
-                        remaining_time = max(0, self.color_confirm_duration - (time.ticks_ms() - self.color_confirm_start_time)) // 1000
-                        img.draw_string(10, 115, f"{detected_color.upper()} [{progress}/{self.color_confirm_threshold}] {remaining_time}s", color=(255, 255, 0))
                     self.motor_control(0)
-                    
-                # 显示已记录颜色数量
-                img.draw_string(10, 130, f"Recorded: {len(self.recorded_colors)} colors", color=(0, 255, 255))
+
             else:
                 img.draw_rectangle(self.roi, color=255)
 
                 if self.detect_intersection(img):
                     red_led.on()
                     self.motor_control(0, is_cross=True)
-                    time.sleep_ms(200)
+                    time.sleep_ms(400)
                     red_led.off()
-
                 else:
                     red_led.off()
-
                     line_x = self.find_line_multipoint(img)
                     if line_x is not None:
                         error = line_x - (self.roi[0] + self.roi[2] // 2)
-                        pid_output = self.calculate_pid(
-                            error,
-                            self.forward_kp, self.forward_ki, self.forward_kd,
-                            'forward_last_error', 'forward_integral'
-                        )
+                        pid_output = self.calculate_pid(error)
                         self.motor_control(pid_output)
                         img.draw_circle(line_x, 60, 5, color=255)
                     else:
                         self.motor_control(0)
 
-            # 显示状态信息
-            if self.turn_assist_mode:
-                mode_text = "TURN"
-                mode_color = (0, 255, 255)
-            elif self.color_mode:
-                mode_text = "RGB COLOR"
-                mode_color = (255, 0, 255)
-            else:
-                mode_text = "LINE"
-                mode_color = (255, 255, 0)
-                
-            img.draw_string(10, 10, mode_text, color=mode_color)
-            if self.turn_assist_mode:
-                img.draw_string(10, 25, f"Turn Assist", color=255)
-            else:
-                img.draw_string(10, 25, f"Cross: {self.cross_count}", color=255)
+            # 显示状态
+            modes = ["LINE", "RGB COLOR", "TURN"]
+            colors = [(255, 255, 0), (255, 0, 255), (0, 255, 255)]
+            mode_idx = 1 if self.color_mode else (2 if self.turn_assist_mode else 0)
+            img.draw_string(10, 10, modes[mode_idx], color=colors[mode_idx])
+
             lcd.write(img)
 
 
