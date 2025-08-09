@@ -5,13 +5,18 @@ from pyb import UART, LED
 sensor.reset()
 sensor.set_pixformat(sensor.RGB565)
 sensor.set_framesize(sensor.QQVGA)
-sensor.set_auto_gain(1)
-sensor.set_auto_whitebal(1)
+sensor.set_auto_gain(0)
+sensor.set_auto_whitebal(0)
 sensor.skip_frames(time=1000)
-# sensor.set_vflip(True)
-# sensor.set_hmirror(True)
+sensor.set_vflip(True)
+sensor.set_hmirror(True)
 clock = time.clock()
-lcd = display.SPIDisplay()
+
+# 可选开关
+USE_LCD = False  # False时不启用LCD
+DEBUG = False    # False时不打印调试信息且不绘制状态文本
+
+lcd = display.SPIDisplay() if USE_LCD else None
 
 uart = UART(3, 115200)
 red_led, green_led, blue_led = LED(1), LED(2), LED(3)
@@ -40,13 +45,13 @@ class LineFollower:
         self.roi = ((self.img_width - roi_w) // 2, (self.img_height - roi_h) // 2, roi_w, roi_h)
         self.threshold = [(0, 40, -20, 20, -20, 20)]
 
-        # 交叉路口检测
-        self.cross_count = self.cross_confirm_count = 0
+        # 交叉路口检测（仅发送标志，不做计数）
+        self.cross_confirm_count = 0
         self.last_cross_time = 0
 
         # 模式控制
-        self.color_mode = 0
-        self.turn_assist_mode = False
+        self.color_mode = 1
+        self.turn_assist_mode = 0
         self.turn_state = 'idle'
 
         # 颜色检测参数
@@ -54,7 +59,7 @@ class LineFollower:
             [(0, 100, 16, 127, -5, 127)],    # red
             [(0, 37, -128, -18, -128, 127)], # green
             [(0, 100, -128, 32, -128, -15)], # blue
-            [(64, 90, -24, 1, 8, 85)]        # white
+            [(68, 100, -128, 127, -128, 39)]        # white
         ]
         self.min_color_pixels = 60
 
@@ -110,7 +115,7 @@ class LineFollower:
 
         if white_blobs:
             for blob in white_blobs:
-                if blob.w() / blob.h() < 1.7 if blob.h() > 0 else False:
+                if blob.w() / blob.h() < 10 if blob.h() > 0 else False:
                     if blob.pixels() > 400:
                         img.draw_rectangle(blob.rect(), color=(255, 255, 255))
                         return 'white'
@@ -138,7 +143,8 @@ class LineFollower:
         elif self.turn_state == 'ready' and lines[1]:
             self.turn_state = 'triggered'
             turn_detected = True
-            print("检测到转弯!")
+            if DEBUG:
+                print("检测到转弯!")
         elif self.turn_state == 'triggered' and not any(lines):
             self.turn_state = 'idle'
 
@@ -186,18 +192,17 @@ class LineFollower:
         if lines_count == 2:
             self.cross_confirm_count += 1
             if self.cross_confirm_count >= 1 and current_time - self.last_cross_time > 900:
-                self.cross_count += 1
                 self.last_cross_time = current_time
                 self.cross_confirm_count = 0
                 blue_led.on()
-                print(f"检测到交叉路口! 总计数: {self.cross_count}")
+                if DEBUG:
+                    print("检测到交叉路口!")
                 return True
         else:
             self.cross_confirm_count = 0
-            
+
         blue_led.off()
         return False
-
 
     def calculate_pid(self, error):
         self.forward_integral += error
@@ -208,58 +213,60 @@ class LineFollower:
 
     def motor_control(self, steering_value, is_cross=False, is_turn=False, detected_color=None):
         steering_value = max(-100, min(100, int(steering_value)))
-        
+
         mode = MODES[1] if self.color_mode else (MODES[2] if self.turn_assist_mode else MODES[0])
         flag = FLAGS[1] if is_cross else (FLAGS[2] if is_turn else FLAGS[0])
         color_num = COLOR_NUMBERS[COLOR_NAMES.index(detected_color)] if detected_color in COLOR_NAMES else 0
-        
+
         pid_byte = (256 + steering_value) & 0xFF if steering_value < 0 else steering_value & 0xFF
         packet = [PACKET_SYNC, mode, pid_byte, flag, color_num]
         uart.write(bytes(packet))
-        
-        # 打印发送的数据包信息
-        mode_names = ["FORWARD", "COLOR", "TURN_ASSIST"]
-        flag_names = ["NONE", "CROSS", "TURN"]
-        color_name = detected_color if detected_color else "NONE"
-        mode_name = mode_names[mode] if mode < len(mode_names) else "UNKNOWN"
-        flag_name = flag_names[flag] if flag < len(flag_names) else "UNKNOWN"
-        
-        print(f"发送: 模式={mode_name}, PID={steering_value}, 标志={flag_name}, 颜色={color_name}")
-        print(f"数据包: {[hex(b) for b in packet]}")
+        if DEBUG:
+            mode_names = ["FORWARD", "COLOR", "TURN_ASSIST"]
+            flag_names = ["NONE", "CROSS", "TURN"]
+            color_name = detected_color if detected_color else "NONE"
+            mode_name = mode_names[mode] if mode < len(mode_names) else "UNKNOWN"
+            flag_name = flag_names[flag] if flag < len(flag_names) else "UNKNOWN"
+            print(f"发送: 模式={mode_name}, PID={steering_value}, 标志={flag_name}, 颜色={color_name}")
+            print(f"数据包: {[hex(b) for b in packet]}")
 
     def process_uart_commands(self):
         if uart.any():
             cmd_data = uart.read()
             if len(cmd_data) >= 1:
                 cmd = cmd_data[0]
-                
-                # 打印接收到的命令
-                print(f"接收命令: {[hex(b) for b in cmd_data]}")
-                
+
+                if DEBUG:
+                    print(f"接收命令: {[hex(b) for b in cmd_data]}")
+
                 if cmd in MODES:
                     mode_names = ["FORWARD", "COLOR", "TURN_ASSIST"]
                     mode_name = mode_names[cmd] if cmd < len(mode_names) else "UNKNOWN"
-                    print(f"模式切换: {mode_name}")
-                    
+                    if DEBUG:
+                        print(f"模式切换: {mode_name}")
+
                     self.color_mode = (cmd == MODES[1])
                     self.turn_assist_mode = (cmd == MODES[2])
                     self.color_detect_mode_active = False
-                    
+
                 elif len(cmd_data) >= 2:
                     if cmd == CMDS[1]:  # COLOR_DETECT
                         self.color_detect_request_index = cmd_data[1]
-                        print(f"收到颜色检测请求: 索引={self.color_detect_request_index}")
+                        if DEBUG:
+                            print(f"收到颜色检测请求: 索引={self.color_detect_request_index}")
                         self.color_detect_mode_active = True
                         self.color_mode = True
                         self._reset_color_confirmation()
-                        
+
                     elif cmd == CMDS[0]:  # COLOR_RECORDED
                         color_index = cmd_data[1]
-                        print(f"主控确认记录颜色: 索引={color_index}")
+                        if DEBUG:
+                            print(f"主控确认记录颜色: 索引={color_index}")
                         if color_index < 5 and self.confirmed_color:
                             self.confirmed_color_array[color_index] = self.confirmed_color
                             self.confirmed_color_count = max(self.confirmed_color_count, color_index + 1)
-                            print(f"OpenMV记录颜色: 索引={color_index}, 颜色={self.confirmed_color}")
+                            if DEBUG:
+                                print(f"OpenMV记录颜色: 索引={color_index}, 颜色={self.confirmed_color}")
                         self.color_detect_mode_active = False
                         self.color_detect_request_index = None
                         self.confirmed_color = None
@@ -290,7 +297,8 @@ class LineFollower:
         for color, count in recent_detections.items():
             if count >= 8:
                 self.confirmed_color = color
-                print(f"颜色确认: {color} (检测次数: {count})")
+                if DEBUG:
+                    print(f"颜色确认: {color} (检测次数: {count})")
                 return self.process_confirmed_color(color)
 
         return None
@@ -316,22 +324,26 @@ class LineFollower:
         recorded_colors = set(filter(None, self.confirmed_color_array[:3]))
 
         if c4_detected in {'red', 'green', 'blue'}:
-            if c4_detected in recorded_colors:
-                if 'black' in recorded_colors and 'white' not in recorded_colors:
-                    return 'white'
-                elif 'white' in recorded_colors and 'black' not in recorded_colors:
-                    return 'black'
-                else:
-                    return self.detect_black_white_filtered_cache or 'black'
+            if c4_detected not in recorded_colors:
+                # 如果之前没有记录过这个颜色则直接返回
+                return c4_detected
             else:
+                # 如果记录过，则启用黑白识别
+                return self.detect_black_white_filtered_cache or 'black'
+        elif c4_detected in {'black', 'white'}:
+            # 如果第四个颜色为黑/白
+            if 'black' in recorded_colors:
+                # 如果已经记录了黑则返回白
+                return 'white'
+            elif 'white' in recorded_colors:
+                # 如果已经记录了白则返回黑
+                return 'black'
+            else:
+                # 如果同时识别到两个颜色则返回之前没有记录过的
                 return c4_detected
         else:
-            if 'black' in recorded_colors and 'white' not in recorded_colors:
-                return 'white'
-            elif 'white' in recorded_colors and 'black' not in recorded_colors:
-                return 'black'
-            else:
-                return 'black'
+            # 默认情况
+            return 'black'
 
     def _determine_fifth_color(self):
         all_colors = {'red', 'green', 'blue', 'white', 'black'}
@@ -348,18 +360,16 @@ class LineFollower:
         color_number = COLOR_NUMBERS[COLOR_NAMES.index(color)] if color in COLOR_NAMES else 0
         packet = [CMDS[2], index, color_number]
         uart.write(bytes(packet))
-        
-        # 打印颜色检测结果发送信息
-        print(f"发送颜色结果: 索引={index}, 颜色={color}, 编号={color_number}")
-        print(f"颜色结果包: {[hex(b) for b in packet]}")
+        if DEBUG:
+            print(f"发送颜色结果: 索引={index}, 颜色={color}, 编号={color_number}")
+            print(f"颜色结果包: {[hex(b) for b in packet]}")
 
     def run(self):
         green_led.on()
         while True:
             clock.tick()
             self.process_uart_commands()
-
-            img = sensor.snapshot().lens_corr(strength=1.0, zoom=1.0)
+            img = sensor.snapshot()
             center_x, center_y = self.img_width // 2, self.img_height // 2
             img.draw_cross(center_x, center_y, size=5, color=(255, 255, 255))
 
@@ -394,7 +404,7 @@ class LineFollower:
                 if self.detect_intersection(img):
                     red_led.on()
                     self.motor_control(0, is_cross=True)
-                    time.sleep_ms(400)
+                    time.sleep_ms(500)
                     red_led.off()
                 else:
                     red_led.off()
@@ -406,14 +416,13 @@ class LineFollower:
                         img.draw_circle(line_x, 60, 5, color=255)
                     else:
                         self.motor_control(0)
-
-            # 显示状态
-            modes = ["LINE", "RGB COLOR", "TURN"]
-            colors = [(255, 255, 0), (255, 0, 255), (0, 255, 255)]
-            mode_idx = 1 if self.color_mode else (2 if self.turn_assist_mode else 0)
-            img.draw_string(10, 10, modes[mode_idx], color=colors[mode_idx])
-
-            lcd.write(img)
+            if lcd:
+                if DEBUG:
+                    modes = ["LINE", "RGB COLOR", "TURN"]
+                    colors = [(255, 255, 0), (255, 0, 255), (0, 255, 255)]
+                    mode_idx = 1 if self.color_mode else (2 if self.turn_assist_mode else 0)
+                    img.draw_string(10, 10, modes[mode_idx], color=colors[mode_idx])
+                lcd.write(img)
 
 
 

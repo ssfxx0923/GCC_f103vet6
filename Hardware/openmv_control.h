@@ -27,7 +27,7 @@ void OpenMV_Control_Init(void);
 void OpenMV_Process_Data(uint8_t *data, uint8_t len);
 void OpenMV_Line_Forward_Control(float speed);
 void OpenMV_Go_Control(float speed, uint32_t count, float revolutions);
-void OpenMV_Turn_Control(float direction, uint32_t target_lines, float speed);
+void OpenMV_Turn_Control(int32_t target_lines, float speed);
 void OpenMV_Send_Command(uint8_t mode);
 void OpenMV_Send_Color_Recorded(uint8_t color_index);
 

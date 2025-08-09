@@ -34,21 +34,18 @@ int main(){
     init();
     
 
-    // OpenMV_Go_Control(40,2,1.65);
-    // delay_ms(2000);
-    // OpenMV_Turn_Control(1,3,20);
-    // delay_ms(2000);
-    // OpenMV_Go_Control(40,2,0.6);
+ //    OpenMV_Go_Control(50,3,0);
 
-   // Position_Control_Start_All(2.1,40);
 
-   OpenMV_Request_Color_Detection(2);
+    OpenMV_Turn_Control(1,20);
+    delay_ms(1000);
+    OpenMV_Go_Control(50,1,0);
+
+     OpenMV_Request_Color_Detection(0);
       while(1){
-        uint8_t color = OpenMV_Get_Color(2);
+        uint8_t color = OpenMV_Get_Color(0);
         OLED_ShowNum(1,1,color,2);
-        // 显示额外的调试信息
-        OLED_ShowNum(2,1,color,2);  // 第二行也显示颜色值
-        delay_ms(100);  // 稍作延迟以便观察
+        delay_ms(100);  
       }
   
   

@@ -117,7 +117,7 @@ void OpenMV_Go_Control(float speed,uint32_t count,float revolutions)
     OLED_ShowNum(3,1,cross_count,3);
 }
 
-void OpenMV_Turn_Control(float direction, uint32_t target_lines,float speed)
+void OpenMV_Turn_Control(int32_t target_lines,float speed)
 {
     if(current_mode != MODE_TURN_ASSIST)
     {
@@ -130,7 +130,7 @@ void OpenMV_Turn_Control(float direction, uint32_t target_lines,float speed)
     turn_count = 0; 
     while(timeout_counter < max_timeout)
     {
-        if(direction > 0)
+        if(target_lines > 0)
         {
             Speed_Control_Start(Motor1, speed);
             Speed_Control_Start(Motor2, -speed);
