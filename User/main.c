@@ -26,16 +26,19 @@ void init(){
     PID_Control_Init();
     LED_Init();
     LED_ON(2);
-     crazyMe_Multi(servo_init,10,50,50);
-    delay_ms(3000);
+//     crazyMe_Multi(servo_init,10,20,30);
+//    delay_ms(3000);
 
 }
 
 
 int main(){
     init();
-    task1_run();
-//OpenMV_Turn_Control(5,20);
+//    task1_run();
+            crazyMe(1, 25, 25, 20, 30);
+            crazyMe(3, 90, 90, 20, 30);
+            crazyMe(1, 90, 90, 20, 30);
+
     while(1){ 
       }
   

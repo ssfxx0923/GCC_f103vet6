@@ -30,7 +30,7 @@ CMDS = [0x20, 0x21, 0x22]   # RECORDED, DETECT, RESULT
 # 颜色配置 - 索引对应: green, white, red, black, blue
 COLOR_NAMES = ['green', 'white', 'red', 'black', 'blue']
 COLOR_NUMBERS = [1, 2, 3, 4, 5]
-COLOR_DISPLAYS = [(0,255,0), (255,255,255), (255,0,0), (128,128,128), (0,0,255)]
+COLOR_DISPLAYS = [(255,0,0), (255,255,255), (255,0,0), (128,128,128), (0,255,0)]
 
 
 class LineFollower:
@@ -50,7 +50,7 @@ class LineFollower:
         self.last_cross_time = 0
 
         # 模式控制
-        self.color_mode = 0
+        self.color_mode = 1
         self.turn_assist_mode = 0
         self.turn_state = 'idle'
 
@@ -58,7 +58,7 @@ class LineFollower:
         self.color_thresholds = [
             [(0, 100, 16, 127, -5, 127)],    # red
             [(0, 37, -128, -18, -128, 127)], # green
-            [(0, 100, -128, 32, -128, -15)], # blue
+            [(0, 57, -128, 127, -12, -58)], # blue
             [(23, 0, -128, 127, -128, 72)]  # black
         ]
         self.min_color_pixels = 60
@@ -308,11 +308,9 @@ class LineFollower:
 
 
     def determine_color_by_index(self, index, detected_color):
-        if index < 3:
-            return detected_color
-        elif index == 3:
+        if index == 1:
             return self._determine_fourth_color(detected_color)
-        elif index == 4:
+        elif index == 3:
             return self._determine_fifth_color()
         else:
             return detected_color
