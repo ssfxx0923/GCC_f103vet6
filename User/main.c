@@ -12,6 +12,7 @@
 #include "MoveSet.h"
 #include "ServoMoveSet.h"
 #include "led.h"
+#include "Task.h"
 void init(){
     Stm32_Clock_Init(7);      
     delay_init(8);
@@ -25,27 +26,17 @@ void init(){
     PID_Control_Init();
     LED_Init();
     LED_ON(2);
-    delay_ms(5000);
+     crazyMe_Multi(servo_init,10,50,50);
+    delay_ms(3000);
 
 }
 
 
 int main(){
     init();
-    
-
- //    OpenMV_Go_Control(50,3,0);
-
-
-    OpenMV_Turn_Control(1,20);
-    delay_ms(1000);
-    OpenMV_Go_Control(50,1,0);
-
-     OpenMV_Request_Color_Detection(0);
-      while(1){
-        uint8_t color = OpenMV_Get_Color(0);
-        OLED_ShowNum(1,1,color,2);
-        delay_ms(100);  
+    task1_run();
+//OpenMV_Turn_Control(5,20);
+    while(1){ 
       }
   
   

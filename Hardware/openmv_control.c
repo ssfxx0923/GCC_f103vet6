@@ -88,8 +88,8 @@ void OpenMV_Line_Forward_Control(float speed)
         OpenMV_Send_Command(0);
         delay_ms(100);
     }
-    left_speed = speed + pid_output * 0.9f;
-    right_speed = speed - pid_output * 0.9f;
+    left_speed = speed + pid_output * 1.1f;
+    right_speed = speed - pid_output * 1.1f;
     
     Speed_Control_Start(Motor1, left_speed);
     Speed_Control_Start(Motor2, right_speed);
@@ -106,15 +106,13 @@ void OpenMV_Go_Control(float speed,uint32_t count,float revolutions)
     {
         OpenMV_Line_Forward_Control(speed);
         timeout_counter++;
-        OLED_ShowNum(2,1,cross_count,3);
         if(cross_count >= count)
         {   
-            OLED_ShowNum(2,1,cross_count,3);
             break;
         }
+        delay_ms(1);
     }
     Position_Control_Start_All(revolutions, speed);
-    OLED_ShowNum(3,1,cross_count,3);
 }
 
 void OpenMV_Turn_Control(int32_t target_lines,float speed)
@@ -136,6 +134,10 @@ void OpenMV_Turn_Control(int32_t target_lines,float speed)
             Speed_Control_Start(Motor2, -speed);
             Speed_Control_Start(Motor3, speed);
             Speed_Control_Start(Motor4, -speed);
+            if(turn_count >= target_lines)
+            {   
+                break;
+            }
         }
         else
         {
@@ -143,15 +145,15 @@ void OpenMV_Turn_Control(int32_t target_lines,float speed)
             Speed_Control_Start(Motor2, speed);
             Speed_Control_Start(Motor3, -speed);
             Speed_Control_Start(Motor4, speed);
+            if(turn_count >= -target_lines)
+            {   
+                break;
+            }
         }
         timeout_counter++;
-        OLED_ShowNum(1,1,turn_count,3);
-        if(turn_count >= target_lines)
-        {   
-            OLED_ShowNum(1,1,turn_count,3);
-            break;
-        }
+        delay_ms(1);
     }
+    OLED_ShowNum(2,1,turn_count,1);
     OpenMV_Send_Command(0);
     delay_ms(100);
     for(int i = 0; i < 20; i++)

@@ -27,10 +27,10 @@ MODES = [0x00, 0x01, 0x02]  # FORWARD, COLOR, TURN_ASSIST
 FLAGS = [0x00, 0x01, 0x02]  # NONE, CROSS, TURN
 CMDS = [0x20, 0x21, 0x22]   # RECORDED, DETECT, RESULT
 
-# 颜色配置 - 索引对应: red, green, blue, white, black
-COLOR_NAMES = ['red', 'green', 'blue', 'white', 'black']
+# 颜色配置 - 索引对应: green, white, red, black, blue
+COLOR_NAMES = ['green', 'white', 'red', 'black', 'blue']
 COLOR_NUMBERS = [1, 2, 3, 4, 5]
-COLOR_DISPLAYS = [(255,0,0), (0,255,0), (0,0,255), (255,255,255), (128,128,128)]
+COLOR_DISPLAYS = [(0,255,0), (255,255,255), (255,0,0), (128,128,128), (0,0,255)]
 
 
 class LineFollower:
@@ -50,7 +50,7 @@ class LineFollower:
         self.last_cross_time = 0
 
         # 模式控制
-        self.color_mode = 1
+        self.color_mode = 0
         self.turn_assist_mode = 0
         self.turn_state = 'idle'
 
@@ -59,7 +59,7 @@ class LineFollower:
             [(0, 100, 16, 127, -5, 127)],    # red
             [(0, 37, -128, -18, -128, 127)], # green
             [(0, 100, -128, 32, -128, -15)], # blue
-            [(68, 100, -128, 127, -128, 39)]        # white
+            [(23, 0, -128, 127, -128, 72)]  # black
         ]
         self.min_color_pixels = 60
 
@@ -69,7 +69,7 @@ class LineFollower:
         self.confirmed_color = None
         self.confirmed_color_array = [None] * 5
         self.confirmed_color_count = 0
-        self.detect_black_white_filtered_cache = None
+        self.detect_black_white_cache = None
 
         # 颜色检测请求
         self.color_detect_request_index = None
@@ -103,31 +103,28 @@ class LineFollower:
         return best_color, {}
 
     def _detect_black_white(self, img, color_roi):
-        # 过滤RGB色块
-        filtered_img = img.copy()
-        for i in range(3):  # red, green, blue
-            blobs = img.find_blobs(self.color_thresholds[i], roi=color_roi, merge=True, pixels_threshold=self.min_color_pixels)
-            for blob in blobs:
-                filtered_img.draw_rectangle(blob.rect(), color=(128, 128, 128), fill=True)
+        # 检测黑色
+        black_blobs = img.find_blobs(self.color_thresholds[3], roi=color_roi, merge=True)
 
-        # 检测白色
-        white_blobs = filtered_img.find_blobs(self.color_thresholds[3], roi=color_roi, merge=True, pixels_threshold=self.min_color_pixels)
+        # 统计黑色像素数量
+        black_pixel_count = 0
+        if black_blobs:
+            black_pixel_count = sum(blob.pixels() for blob in black_blobs)
+            for blob in black_blobs:
+                img.draw_rectangle(blob.rect(), color=(0, 0, 0))
 
-        if white_blobs:
-            for blob in white_blobs:
-                if blob.w() / blob.h() < 10 if blob.h() > 0 else False:
-                    if blob.pixels() > 400:
-                        img.draw_rectangle(blob.rect(), color=(255, 255, 255))
-                        return 'white'
-                    else:
-                        img.draw_rectangle(blob.rect(), color=(128, 128, 128))
-                        return 'black'
-        return 'black'
+        # 当黑色像素大于750，则认为黑色，否则认为白色
+        if black_pixel_count > 720:
+            return 'black'
+        else:
+            img.draw_rectangle(color_roi, color=(255, 255, 255))
+            return 'white'
 
     def detect_vertical_line(self, img):
         center_x, center_y = self.img_width // 2, self.img_height // 2
         roi_w, roi_h = self.img_width // 10, self.img_height // 5
         gap = self.img_width // 3
+        gap = self.img_width // 5  # 将间距从 1/3 调整为 1/5
 
         rois = [
             (center_x - gap - roi_w//2, center_y, roi_w, roi_h),  # left
@@ -325,31 +322,24 @@ class LineFollower:
 
         if c4_detected in {'red', 'green', 'blue'}:
             if c4_detected not in recorded_colors:
-                # 如果之前没有记录过这个颜色则直接返回
                 return c4_detected
             else:
-                # 如果记录过，则启用黑白识别
-                return self.detect_black_white_filtered_cache or 'black'
+                return self.detect_black_white_cache or 'white'
         elif c4_detected in {'black', 'white'}:
-            # 如果第四个颜色为黑/白
             if 'black' in recorded_colors:
-                # 如果已经记录了黑则返回白
                 return 'white'
             elif 'white' in recorded_colors:
-                # 如果已经记录了白则返回黑
                 return 'black'
             else:
-                # 如果同时识别到两个颜色则返回之前没有记录过的
                 return c4_detected
         else:
-            # 默认情况
-            return 'black'
+            return 'white'
 
     def _determine_fifth_color(self):
         all_colors = {'red', 'green', 'blue', 'white', 'black'}
         recorded_colors = set(filter(None, self.confirmed_color_array[:4]))
         remaining = all_colors - recorded_colors
-        return list(remaining)[0] if remaining else 'black'
+        return list(remaining)[0] if remaining else 'white'
 
     def process_confirmed_color(self, confirmed_color):
         if self.color_detect_request_index is None:
@@ -383,7 +373,7 @@ class LineFollower:
                 center_x, center_y = self.img_width // 2, self.img_height // 2
                 roi_w, roi_h = self.img_width // 2, self.img_height // 3
                 color_roi = (center_x - roi_w//2, center_y - roi_h//2, roi_w, roi_h)
-                self.detect_black_white_filtered_cache = self._detect_black_white(img, color_roi)
+                self.detect_black_white_cache = self._detect_black_white(img, color_roi)
 
                 confirmed_color = self.confirm_color_detection(detected_color)
 

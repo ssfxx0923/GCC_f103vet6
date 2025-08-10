@@ -44,3 +44,4 @@
 .\objects\main.o: User\MoveSet.h
 .\objects\main.o: User\ServoMoveSet.h
 .\objects\main.o: .\Hardware\led.h
+.\objects\main.o: User\Task.h
