@@ -1,5 +1,13 @@
 *** Using Compiler 'V5.06 update 7 (build 960)', folder: 'C:\Keil_v5\ARM\ARMCC\Bin'
 Build target 'Target 1'
+compiling Task.c...
+User\Task.h(9): warning:  #1-D: last line of file ends without a newline
+  #endif
+User\MoveSet.h(44): warning:  #1-D: last line of file ends without a newline
+  #endif
+.\Hardware\PCA9685.h(42): warning:  #1295-D: Deprecated declaration PCA9685_Init - give arg types
+  void PCA9685_Init();
+User\Task.c: 3 warnings, 0 errors
 compiling main.c...
 .\Hardware\PCA9685.h(42): warning:  #1295-D: Deprecated declaration PCA9685_Init - give arg types
   void PCA9685_Init();
@@ -9,6 +17,6 @@ User\Task.h(9): warning:  #1-D: last line of file ends without a newline
   #endif
 User\main.c: 3 warnings, 0 errors
 linking...
-Program Size: Code=13636 RO-data=336 RW-data=84 ZI-data=1820  
-".\Objects\project.axf" - 0 Error(s), 3 Warning(s).
-Build Time Elapsed:  00:00:02
+Program Size: Code=13980 RO-data=336 RW-data=84 ZI-data=1820  
+".\Objects\project.axf" - 0 Error(s), 6 Warning(s).
+Build Time Elapsed:  00:00:01

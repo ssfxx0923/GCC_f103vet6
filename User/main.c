@@ -10,7 +10,6 @@
 #include "openmv_control.h"
 #include "Usart2.h"
 #include "MoveSet.h"
-#include "ServoMoveSet.h"
 #include "led.h"
 #include "Task.h"
 void init(){
@@ -26,8 +25,8 @@ void init(){
     PID_Control_Init();
     LED_Init();
     LED_ON(2);
-//     crazyMe_Multi(servo_init,10,20,30);
-//    delay_ms(3000);
+    // crazyMe_Multi(servo_init,10,20,30);
+    delay_ms(3000);
 
 }
 
@@ -35,10 +34,56 @@ void init(){
 int main(){
     init();
 //    task1_run();
-            crazyMe(1, 25, 25, 20, 30);
-            crazyMe(3, 90, 90, 20, 30);
-            crazyMe(1, 90, 90, 20, 30);
+//    task2_run();
 
+
+
+
+
+            OpenMV_Request_Color_Detection(3);
+
+                       OpenMV_Turn_Control(3,20);
+delay_ms(5000);
+            OpenMV_Request_Color_Detection(3);
+            OpenMV_Turn_Control(3,20);
+
+
+
+
+
+
+//    auto_catch();
+//    OpenMV_Turn_Control(3,20);
+
+// OpenMV_Go_Control(40,2,0.6); //直接前往F,加颜色识别，第一次抓取
+// delay_ms(1000);
+// Position_Control_Start_All(0.32,40);
+
+
+// OpenMV_Go_Control(40,2,0.94); //直接前往F,无颜色识别第一次抓取
+
+
+
+// crazyMe_Multi(servo_1,2,20,30);//第一次抓取
+// crazyMe_Multi(servo_2,2,20,30);
+// Position_Control_Start_All(-0.45,40);
+// delay_ms(500);
+// crazyMe_Multi(servo_5,2,20,30);
+// OpenMV_Turn_Control(3,20);
+
+// OpenMV_Go_Control(40,2,1.05); //直接前往F,无颜色识别，第二次抓取
+// delay_ms(500);
+// crazyMe_Multi(servo_3,2,20,30);//第二次抓取
+// crazyMe_Multi(servo_4,2,20,30);
+// Position_Control_Start_All(-0.2,40);
+// delay_ms(300);
+// crazyMe_Multi(servo_5,2,20,30);
+// Position_Control_Start_All(1.2,40);
+// delay_ms(500);
+// crazyMe(9,160,160,20,30);//抓取物块
+// Position_Control_Start_All(-1.7,40);
+// delay_ms(2000);
+// OpenMV_Turn_Control(3,20);
     while(1){ 
       }
   

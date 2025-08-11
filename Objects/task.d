@@ -38,3 +38,4 @@
 .\objects\task.o: .\Hardware\encoder.h
 .\objects\task.o: .\Hardware\PCA9685.h
 .\objects\task.o: .\System\IIC.h
+.\objects\task.o: User\ServoMoveSet.h

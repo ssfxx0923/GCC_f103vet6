@@ -42,6 +42,5 @@
 .\objects\main.o: .\Hardware\openmv_control.h
 .\objects\main.o: .\System\Usart2.h
 .\objects\main.o: User\MoveSet.h
-.\objects\main.o: User\ServoMoveSet.h
 .\objects\main.o: .\Hardware\led.h
 .\objects\main.o: User\Task.h

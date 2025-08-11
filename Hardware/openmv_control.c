@@ -120,7 +120,7 @@ void OpenMV_Turn_Control(int32_t target_lines,float speed)
     if(current_mode != MODE_TURN_ASSIST)
     {
         OpenMV_Send_Command(2);  // 切换到转弯辅助模式
-        delay_ms(100);
+        delay_ms(200);
     }
     
     uint32_t timeout_counter = 0;
@@ -151,9 +151,8 @@ void OpenMV_Turn_Control(int32_t target_lines,float speed)
             }
         }
         timeout_counter++;
-        delay_ms(1);
+        delay_ms(5);
     }
-    OLED_ShowNum(2,1,turn_count,1);
     OpenMV_Send_Command(0);
     delay_ms(100);
     for(int i = 0; i < 20; i++)
