@@ -33,21 +33,8 @@ void init(){
 
 int main(){
     init();
-//    task1_run();
-//    task2_run();
-
-
-
-
-
-            OpenMV_Request_Color_Detection(3);
-
-                       OpenMV_Turn_Control(3,20);
-delay_ms(5000);
-            OpenMV_Request_Color_Detection(3);
-            OpenMV_Turn_Control(3,20);
-
-
+   task1_run();
+   task2_run();
 
 
 

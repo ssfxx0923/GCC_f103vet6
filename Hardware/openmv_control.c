@@ -57,9 +57,8 @@ void OpenMV_Process_Data(uint8_t *data, uint8_t len)
                 color_count = (index >= color_count) ? index + 1 : color_count;
                 // printf("记录颜色: 索引=%d, 颜色=%d\r\n", index, color);
             }
-            
-            OpenMV_Send_Color_Recorded(index);
         }
+        OpenMV_Send_Color_Recorded(index);
         return;
     }
     

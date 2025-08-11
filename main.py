@@ -57,7 +57,7 @@ class LineFollower:
         # 颜色检测参�?
         self.color_thresholds = [
             [(0, 100, 16, 127, -5, 127)],    # red
-            [(0, 37, -128, -18, -128, 127)], # green
+            [(43, 19, -128, -17, 34, 7)], # green
             [(0, 57, -128, 127, -12, -58)], # blue
             [(23, 0, -128, 127, -128, 72)]  # black
         ]
@@ -140,6 +140,7 @@ class LineFollower:
         elif self.turn_state == 'ready' and lines[1]:
             self.turn_state = 'triggered'
             turn_detected = True
+            green_led.on()  # 转弯检测时绿灯亮起
             if DEBUG:
                 print("检测到�?�?!")
         elif self.turn_state == 'triggered' and not any(lines):
@@ -147,6 +148,9 @@ class LineFollower:
 
         for i, roi in enumerate(rois):
             img.draw_rectangle(roi, color=(0, 255, 0) if lines[i] else (255, 0, 0))
+
+        if not turn_detected:
+            green_led.off()  # 未检测到转弯时绿灯熄灭
 
         return turn_detected
 
@@ -241,6 +245,20 @@ class LineFollower:
                     mode_name = mode_names[cmd] if cmd < len(mode_names) else "UNKNOWN"
                     if DEBUG:
                         print(f"模式切换: {mode_name}")
+
+                    # 根据模式闪烁不同颜色的LED
+                    if cmd == MODES[0]:  # FORWARD模式 - 红色LED
+                        red_led.on()
+                        time.sleep_ms(200)
+                        red_led.off()
+                    elif cmd == MODES[1]:  # COLOR模式 - 绿色LED
+                        green_led.on()
+                        time.sleep_ms(200)
+                        green_led.off()
+                    elif cmd == MODES[2]:  # TURN_ASSIST模式 - 蓝色LED
+                        blue_led.on()
+                        time.sleep_ms(200)
+                        blue_led.off()
 
                     self.color_mode = (cmd == MODES[1])
                     self.turn_assist_mode = (cmd == MODES[2])

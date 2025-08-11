@@ -18,8 +18,10 @@ void task1_run(){
     crazyMe_Multi(servo_init,10,20,30);
     OpenMV_Go_Control(50,3,0); //直接前往C点
     current_direction = 3;
+    delay_ms(500);
     OpenMV_Request_Color_Detection(current_direction-1);
-    Position_Control_Start_All(0.7,40);
+    delay_ms(500);
+    Position_Control_Start_All(0.8,40);
     delay_ms(1000);
     crazyMe(9,160,160,20,30);//抓取物块
     current_position = 1;
@@ -27,11 +29,11 @@ void task1_run(){
     map_flag[current_direction-1] = 0;
     if(current_direction == sleeve_flag){ //如果物块颜色正确，则直接前往放置物块
         Position_Control_Start_All(0.3,40);
-        OpenMV_Go_Control(50,1,0.62);
+        OpenMV_Go_Control(50,1,0.57);
         current_position = 2;
         crazyMe(9,46,46,20,30);//放下物块
         sleeve_flag = 0;
-        end_flag[current_position-1] = 1;
+        end_flag[current_direction-1] = 1;  // 
         current_process++;
     }
     while(current_process < 3){     //每次放置加一，最多放置三个放置物块
@@ -54,8 +56,10 @@ void task1_run(){
             }
             if(map_flag[current_direction-1]){ //如果地图上有物块，则用爪子勾取
                 OpenMV_Go_Control(50,1,0); //前往物块
+                delay_ms(500);
                 OpenMV_Request_Color_Detection(current_direction-1);
-                Position_Control_Start_All(0.6,40);
+                delay_ms(500);
+                Position_Control_Start_All(0.45,40);
                 delay_ms(1000);
                 crazyMe(0,155,155,20,30);
                 crazyMe(2,23,23,20,30);
@@ -68,7 +72,7 @@ void task1_run(){
                 current_position = 2;
                 crazyMe(9,46,46,20,30);//放下物块
                 sleeve_flag = 0;
-                end_flag[current_position-1] = 1;
+                end_flag[current_direction-1] = 1;  // 使用方向而不是位置来标记
                 current_process++;
             }
             else{
@@ -76,7 +80,7 @@ void task1_run(){
                 current_position = 2;
                 crazyMe(9,46,46,20,30);//放下物块
                 sleeve_flag = 0;
-                end_flag[current_position-1] = 1;
+                end_flag[current_direction-1] = 1;  // 使用方向而不是位置来标记
                 current_process++;
             }
 
@@ -90,7 +94,9 @@ void task1_run(){
                 }
             }
             OpenMV_Go_Control(50,1,0); //前往物块
+            delay_ms(500);
             OpenMV_Request_Color_Detection(current_direction-1);
+            delay_ms(500);
             Position_Control_Start_All(0.7,40);
             delay_ms(1000);
             crazyMe(9,160,160,20,30);//抓取物块            
@@ -103,7 +109,7 @@ void task1_run(){
                 current_position = 2;
                 crazyMe(9,46,46,20,30);//放下物块
                 sleeve_flag = 0;
-                end_flag[current_position-1] = 1;
+                end_flag[current_direction-1] = 1;  // 使用方向而不是位置来标记
                 current_process++;
             }
         }
@@ -111,16 +117,6 @@ void task1_run(){
     go_back_center();
     current_process = 0;
 }
-
-
-
-
-
-
-
-
-
-
 
 void task2_run() {
 
@@ -166,6 +162,9 @@ void task2_run() {
 
         if (current_process < 6) {
             if (end_flag[current_direction-1]) {
+                OLED_ShowNum(1,1,current_direction, 2);             
+                OLED_ShowNum(1,6,sleeve_flag, 3);
+                OLED_ShowNum(1,10,end_flag[current_direction-1], 3);
                 OpenMV_Go_Control(50, 1, 0.5); // 前往物块
                 current_position = 1;
                 crazyMe(9, 46, 46, 20, 30); // 放下物块
@@ -173,6 +172,9 @@ void task2_run() {
                 current_process++;
                 OLED_ShowNum(3,6,current_process,2);
             } else {
+                OLED_ShowNum(1,1,current_direction, 3);             
+                OLED_ShowNum(1,6,sleeve_flag, 3);
+                OLED_ShowNum(1,10,end_flag[current_direction-1], 2);
                 OpenMV_Go_Control(50, 2, 0.62); // 如果地图上没有物块，则直接前往放置物块
                 current_position = 2;
                 crazyMe(9, 46, 46, 20, 30); // 放下物块
@@ -186,6 +188,7 @@ void task2_run() {
             } else {
                 OpenMV_Go_Control(50, 2, 0.3); 
                 current_position = 2;
+                crazyMe(9, 90, 90, 20, 30); // 套筒微张              
                 crazyMe(9, 90, 90, 20, 30); // 套筒微张
                 sleeve_flag = 0;
 
@@ -193,20 +196,6 @@ void task2_run() {
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 void auto_catch(){
@@ -222,8 +211,10 @@ void auto_catch(){
     if(current_process==0){
         OpenMV_Go_Control(40,2,0.6);     //物料点1
         current_position = 3;
+        delay_ms(500);
         OpenMV_Request_Color_Detection(1);
-        Position_Control_Start_All(0.32,40);
+        delay_ms(500);
+        Position_Control_Start_All(0.35,40);
         delay_ms(300);
         crazyMe_Multi(servo_1,2,20,30);//第一次抓取
         crazyMe_Multi(servo_2,2,20,30);
@@ -232,7 +223,7 @@ void auto_catch(){
         crazyMe_Multi(servo_5,2,20,30);
         claw_flag_right = OpenMV_Get_Color(0);//A
         claw_flag_left = OpenMV_Get_Color(1);//B
-        OLED_ShowNum(1, 1, claw_flag_left, 3);
+        OLED_ShowNum(4, 1, claw_flag_left, 3);
         go_back_center();
     }
     else if(current_process==5){
@@ -241,7 +232,7 @@ void auto_catch(){
         delay_ms(500);
         crazyMe_Multi(servo_1,2,20,30);//第一次抓取
         crazyMe_Multi(servo_2,2,20,30);
-        Position_Control_Start_All(-0.45,40);
+        Position_Control_Start_All(-0.50,40);
         delay_ms(500);
         crazyMe_Multi(servo_5,2,20,30);
         claw_flag_right = OpenMV_Get_Color(1);//B
@@ -249,7 +240,7 @@ void auto_catch(){
         go_back_center();
     }
     else {
-        OpenMV_Go_Control(40,2,1.05); //直接前往F,无颜色识别，第二次抓取
+        OpenMV_Go_Control(40,2,1.10); //直接前往F,无颜色识别，第二次抓取
         current_position = 3;
         delay_ms(500);
         crazyMe_Multi(servo_3,2,20,30);//第二次抓取
@@ -266,6 +257,7 @@ void auto_catch(){
             claw_flag_right = OpenMV_Get_Color(4);//E
             claw_flag_left = OpenMV_Get_Color(2);//C      
             OpenMV_Request_Color_Detection(3);
+            delay_ms(500);
         }
         else {
             claw_flag_right = OpenMV_Get_Color(2);//C
@@ -285,18 +277,16 @@ void go_back_center(){
         Position_Control_Start_All(-1.2,40);
         delay_ms(1000);
         OpenMV_Turn_Control(2,20);
-        current_direction = current_direction+4;
-        if (current_direction>7){current_direction -= 8;}
+        current_direction = (current_direction+4)%8;
         delay_ms(300);
-        OpenMV_Go_Control(50,1,1.65); // 前往中心
+        OpenMV_Go_Control(50,1,1.60); // 前往中心
         delay_ms(1000);
     }
     else if(current_position == 3){
         OpenMV_Turn_Control(3,20);
-        current_direction = current_direction+4;
-        if (current_direction>7){current_direction -= 8;}
+        current_direction = (current_direction+4)% 8;  
         delay_ms(300);
-        OpenMV_Go_Control(50,1,1.65); // 前往中心
+        OpenMV_Go_Control(50,1,1.60); // 前往中心
         delay_ms(1000);
     }
     current_position = 0;
